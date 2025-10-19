@@ -2,37 +2,38 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>♻️ Smart Recycling Reward System (Student ID)</title>
-
-<!-- TensorFlow + Teachable Machine -->
+<title>Smart Recycling + Student ID Reward System</title>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.9.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
 
-<!-- Firebase v8 SDK -->
+<!-- ✅ Firebase v8 (non-module, browser compatible) -->
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
 <style>
-  body { font-family: Arial, sans-serif; text-align: center; padding: 20px; background: #f5fff5; }
+  body { font-family: Arial, sans-serif; text-align: center; background: #f0fff0; padding: 25px; }
   h1 { color: #2a7a2a; }
-  button { margin: 6px; padding: 10px 18px; cursor: pointer; font-size: 16px; border-radius: 6px; }
-  input { padding: 8px; font-size: 16px; }
+  input { padding: 8px; font-size: 16px; margin: 5px; }
+  button { padding: 10px 18px; margin: 5px; font-size: 16px; border-radius: 8px; cursor: pointer; }
+  .score { font-size: 1.5em; margin-top: 10px; color: green; transition: transform 0.3s; }
+  .flash { transform: scale(1.3); color: limegreen; }
   #webcam-container { margin-top: 10px; }
-  #status { margin-top: 10px; font-weight: bold; }
-  .score { font-size: 1.5em; color: green; margin-top: 10px; transition: transform 0.2s; }
-  .flash { transform: scale(1.2); color: limegreen; }
+  #error { color: red; font-weight: bold; }
 </style>
 </head>
 <body>
-  <h1>♻️ Smart Recycling Reward System</h1>
+  <h1>♻️ Smart Recycling + Student ID Reward System</h1>
 
+  <!-- Login Section -->
   <div id="login-section">
     <h3>👩‍🎓 Enter Your 8-digit Student ID</h3>
-    <input id="studentId" type="text" maxlength="8" placeholder="e.g. 20250123" />
+    <input id="studentId" type="text" maxlength="8" placeholder="e.g. 20250123">
+    <br>
     <button id="loginBtn">Login / Register</button>
-    <p id="error" style="color:red;"></p>
+    <p id="error"></p>
   </div>
 
+  <!-- Main Section -->
   <div id="main-section" style="display:none;">
     <p>👤 Logged in as: <span id="userId"></span></p>
     <button id="logoutBtn">Logout</button>
@@ -40,14 +41,14 @@
     <button id="connectBtn">🔌 Connect Arduino</button>
     <button id="startBtn">▶️ Start Detection</button>
     <button id="stopBtn">⏹ Stop Detection</button>
-    <div id="status">Status: Not connected</div>
+    <p id="status">Status: Not connected</p>
     <div id="label">Detected: —</div>
     <div class="score">🎁 Points: <span id="points">0</span></div>
     <div id="webcam-container"></div>
   </div>
 
 <script>
-/* -------------------- 🔥 Firebase Setup -------------------- */
+/* -------------------- 🔥 Firebase Setup (v8) -------------------- */
 const firebaseConfig = {
   apiKey: "AIzaSyAjWXFfQT_5dBtDZvYFwyj4kGfeWQdcCBU",
   authDomain: "recygo-cd169.firebaseapp.com",
@@ -66,27 +67,21 @@ let model, webcam, port, writer;
 let detecting = false;
 let rewardPoints = 0;
 let currentStudentId = null;
-let lastLabel = "";
-let stableCount = 0;
-let lastConfirmedLabel = "";
-const STABLE_THRESHOLD = 1; // 更寬鬆，只要一次穩定就觸發
 
 /* -------------------- 👤 Login System -------------------- */
 document.getElementById("loginBtn").addEventListener("click", async () => {
   const id = document.getElementById("studentId").value.trim();
-  const error = document.getElementById("error");
+  const errorMsg = document.getElementById("error");
 
   if (!/^\d{8}$/.test(id)) {
-    error.textContent = "⚠️ Please enter a valid 8-digit Student ID";
+    errorMsg.textContent = "⚠️ Please enter a valid 8-digit Student ID.";
     return;
   }
 
-  error.textContent = "";
-  currentStudentId = id;
-  document.getElementById("userId").innerText = id;
-
+  errorMsg.textContent = "⏳ Logging in...";
   const docRef = db.collection("students").doc(id);
   const docSnap = await docRef.get();
+
   if (docSnap.exists) {
     rewardPoints = docSnap.data().points || 0;
   } else {
@@ -94,9 +89,12 @@ document.getElementById("loginBtn").addEventListener("click", async () => {
     rewardPoints = 0;
   }
 
+  currentStudentId = id;
   document.getElementById("points").innerText = rewardPoints;
+  document.getElementById("userId").innerText = id;
   document.getElementById("login-section").style.display = "none";
   document.getElementById("main-section").style.display = "block";
+  errorMsg.textContent = "";
 });
 
 document.getElementById("logoutBtn").addEventListener("click", () => {
@@ -106,103 +104,97 @@ document.getElementById("logoutBtn").addEventListener("click", () => {
   document.getElementById("main-section").style.display = "none";
 });
 
-/* -------------------- 🤖 Arduino Connection -------------------- */
+/* -------------------- ⚙️ Arduino + AI -------------------- */
 document.getElementById("connectBtn").addEventListener("click", async () => {
   try {
     port = await navigator.serial.requestPort();
     await port.open({ baudRate: 9600 });
     writer = port.writable.getWriter();
     document.getElementById("status").innerText = "✅ Arduino Connected";
-    await writer.write(new TextEncoder().encode("TEST\n"));
-    console.log("📤 Sent test command to Arduino");
   } catch (err) {
     alert("❌ Connection failed: " + err);
   }
 });
 
-/* -------------------- 🧠 Model Setup -------------------- */
 async function init() {
   const modelURL = URL + "model.json";
   const metadataURL = URL + "metadata.json";
   model = await tmImage.load(modelURL, metadataURL);
-
-  webcam = new tmImage.Webcam(200, 200, true);
+  const flip = true;
+  webcam = new tmImage.Webcam(200, 200, flip);
   await webcam.setup();
   await webcam.play();
   document.getElementById("webcam-container").innerHTML = "";
   document.getElementById("webcam-container").appendChild(webcam.canvas);
 }
 
-/* -------------------- 🔄 Detection Loop -------------------- */
 async function loop() {
   webcam.update();
   await predict();
-  if (detecting) requestAnimationFrame(loop);
+  if (detecting) setTimeout(loop, 250);
 }
+
+/* -------------------- AI Prediction -------------------- */
+let lastLabel = "", stableCount = 0, lastConfirmedLabel = "";
+const STABLE_THRESHOLD = 3;
 
 async function predict() {
   const prediction = await model.predict(webcam.canvas);
-  let best = prediction[0];
-  for (let p of prediction) if (p.probability > best.probability) best = p;
+  let highest = prediction[0];
+  for (let p of prediction) if (p.probability > highest.probability) highest = p;
 
-  const className = best.className.trim();
-  const confidence = best.probability;
-  document.getElementById("label").innerText = `Detected: ${className} (${(confidence * 100).toFixed(1)}%)`;
+  const className = highest.className.trim();
+  const confidence = highest.probability;
+  document.getElementById("label").innerText = 
+    `Detected: ${className} (${(confidence * 100).toFixed(1)}%)`;
 
-  const label = className.toLowerCase();
-
-  if (label === lastLabel && confidence > 0.6) stableCount++;
-  else { stableCount = 0; lastLabel = label; }
+  const normalized = className.toLowerCase();
+  if (normalized === lastLabel && confidence > 0.50) stableCount++;
+  else { stableCount = 0; lastLabel = normalized; }
 
   if (stableCount >= STABLE_THRESHOLD) {
     stableCount = 0;
-    handleDetection(label);
+    handleStableDetection(normalized);
   }
 }
 
-/* -------------------- 🏆 Handle Detection -------------------- */
-async function handleDetection(label) {
-  if (!currentStudentId) return;
+/* -------------------- Detection Handler -------------------- */
+async function handleStableDetection(label) {
   if (label === lastConfirmedLabel) return;
   lastConfirmedLabel = label;
 
   let msg = "";
-  if (label.includes("recyclable") && !label.includes("non")) {
+  if (label === "recyclable") {
     msg = "RECYCLABLE\n";
     rewardPoints++;
     document.getElementById("points").innerText = rewardPoints;
     document.getElementById("points").classList.add("flash");
     setTimeout(() => document.getElementById("points").classList.remove("flash"), 300);
-    await db.collection("students").doc(currentStudentId).set({ points: rewardPoints }, { merge: true });
-    console.log("🎁 Added 1 point. Total:", rewardPoints);
+    if (currentStudentId) await db.collection("students").doc(currentStudentId).update({ points: rewardPoints });
   } 
-  else if (label.includes("non") && label.includes("recyclable")) {
+  else if (label === "non-recyclable") {
     msg = "NONRECYCLABLE\n";
-    console.log("🚫 Non-recyclable detected.");
-  } else {
-    console.log("⚠️ Unknown label:", label);
-    return;
   }
 
-  if (writer) {
-    await writer.write(new TextEncoder().encode(msg));
-    console.log("📤 Sent to Arduino:", msg.trim());
-  }
+  if (writer) await writer.write(new TextEncoder().encode(msg));
 }
 
-/* -------------------- 🎬 Controls -------------------- */
+/* -------------------- Start & Stop -------------------- */
 document.getElementById("startBtn").addEventListener("click", async () => {
   if (!model) await init();
   detecting = true;
+  document.getElementById("status").innerText = "🟢 Detecting...";
   lastConfirmedLabel = "";
-  document.getElementById("status").innerText = "🟡 Detecting...";
   loop();
+  if (writer) await writer.write(new TextEncoder().encode("START\n")); // Servo open
 });
 
-document.getElementById("stopBtn").addEventListener("click", () => {
+document.getElementById("stopBtn").addEventListener("click", async () => {
   detecting = false;
   document.getElementById("status").innerText = "🟠 Detection stopped";
+  if (writer) await writer.write(new TextEncoder().encode("STOP\n")); // Servo close
 });
 </script>
 </body>
 </html>
+
