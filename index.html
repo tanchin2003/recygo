@@ -199,9 +199,23 @@ async function init() {
   }
 
   await webcam.play();
-  document.getElementById("webcam-container").innerHTML = "";
-  document.getElementById("webcam-container").appendChild(webcam.canvas);
-}
+const camContainer = document.getElementById("webcam-container");
+camContainer.innerHTML = "";
+webcam.canvas.setAttribute("playsinline", true);
+webcam.canvas.style.display = "block";
+webcam.canvas.style.width = "100%";
+webcam.canvas.style.maxWidth = "320px";
+webcam.canvas.style.height = "auto";
+webcam.canvas.style.borderRadius = "12px";
+webcam.canvas.style.background = "#000";
+camContainer.appendChild(webcam.canvas);
+
+// 🔧 顯示提示，方便測試是否取到畫面
+setTimeout(() => {
+  if (webcam.canvas.width === 0 || webcam.canvas.height === 0) {
+    camContainer.innerHTML = "<p class='text-red-500 text-center mt-3'>⚠️ Camera active but no preview — try Chrome or refresh</p>";
+  }
+}, 1500);
 
 /* ========== Detection Loop (mobile optimized) ========== */
 let lastTime = 0;
@@ -349,6 +363,7 @@ async function loadRecentRecords() {
 </script>
 </body>
 </html>
+
 
 
 
