@@ -9,7 +9,7 @@
 <!-- Tailwind -->
 <script src="https://cdn.tailwindcss.com"></script>
 
-<!-- TensorFlow / Teachable Machine -->
+<!-- TensorFlow + Teachable Machine -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.9.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
 
@@ -44,14 +44,17 @@
     <button id="loginBtn"
             class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition w-72">Login / Register</button>
     <p id="error" class="text-sm text-red-600 mt-2"></p>
-    <p class="text-xs text-gray-500 mt-3">Your points and records are stored in Firebase Cloud.</p>
+    <p class="text-xs text-gray-500 mt-3">
+      Your points and records are stored in Firebase Cloud.<br>
+      If the camera is black on mobile, refresh and allow back camera access.
+    </p>
   </section>
 
   <!-- Main Section -->
   <section id="main-section" class="hidden w-full max-w-5xl mx-auto p-6">
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-      <!-- Left: Detection Panel -->
+      <!-- Left -->
       <div class="bg-white p-6 rounded-xl shadow">
         <div class="flex items-center justify-between mb-3">
           <div>
@@ -74,11 +77,10 @@
         <p id="status" class="text-sm text-gray-600 mb-2">Status: Not connected</p>
         <div id="label" class="mb-2 text-base font-medium">Detected: —</div>
         <div id="detectStatus" class="mb-4 text-sm text-gray-500">💤 Waiting for detection...</div>
-
         <div id="webcam-container" class="mx-auto"></div>
       </div>
 
-      <!-- Right: Leaderboard + Chart -->
+      <!-- Right -->
       <div class="bg-white p-6 rounded-xl shadow space-y-6">
         <div>
           <h2 class="text-xl font-semibold text-green-800 mb-2">🏆 Top Recyclers</h2>
@@ -123,7 +125,7 @@ let lastLabel = "", stableCount = 0, lastConfirmedLabel = "";
 const STABLE_THRESHOLD = 3;
 let pieChart = null;
 
-/* ========== Login System ========== */
+/* ========== Login ========== */
 document.getElementById("loginBtn").addEventListener("click", async () => {
   const id = document.getElementById("studentId").value.trim();
   const errorMsg = document.getElementById("error");
@@ -159,7 +161,7 @@ document.getElementById("logoutBtn").addEventListener("click", () => {
   document.getElementById("studentId").value = "";
 });
 
-/* ========== Arduino Connect ========== */
+/* ========== Arduino ========== */
 document.getElementById("connectBtn").addEventListener("click", async () => {
   try {
     port = await navigator.serial.requestPort();
@@ -172,25 +174,44 @@ document.getElementById("connectBtn").addEventListener("click", async () => {
   }
 });
 
-/* ========== AI Init ========== */
+/* ========== AI Init (Back Camera Preferred) ========== */
 async function init() {
   if (model) return;
   const modelURL = URL + "model.json";
   const metadataURL = URL + "metadata.json";
   model = await tmImage.load(modelURL, metadataURL);
-  const flip = true;
-  webcam = new tmImage.Webcam(320, 320, flip);
-  await webcam.setup();
+
+  const constraints = {
+    video: {
+      facingMode: { exact: "environment" },
+      width: { ideal: 224 },
+      height: { ideal: 224 }
+    }
+  };
+
+  try {
+    webcam = new tmImage.Webcam(224, 224, false);
+    await webcam.setup(constraints);
+  } catch (error) {
+    console.warn("Back camera not available, switching to default:", error);
+    webcam = new tmImage.Webcam(224, 224, true);
+    await webcam.setup();
+  }
+
   await webcam.play();
   document.getElementById("webcam-container").innerHTML = "";
   document.getElementById("webcam-container").appendChild(webcam.canvas);
 }
 
-/* ========== Detection ========== */
-async function loop() {
-  webcam.update();
-  await predict();
-  if (detecting) setTimeout(loop, 250);
+/* ========== Detection Loop (mobile optimized) ========== */
+let lastTime = 0;
+async function loop(timestamp) {
+  if (!lastTime || timestamp - lastTime > 500) { // 每0.5秒判斷一次
+    webcam.update();
+    await predict();
+    lastTime = timestamp;
+  }
+  if (detecting) requestAnimationFrame(loop);
 }
 
 async function predict() {
@@ -211,7 +232,7 @@ async function predict() {
   }
 }
 
-/* ========== Stable Detection Handler ========== */
+/* ========== Detection Result Handler ========== */
 async function handleStableDetection(label) {
   if (label === lastConfirmedLabel) return;
   lastConfirmedLabel = label;
@@ -245,7 +266,7 @@ async function handleStableDetection(label) {
   }
 }
 
-/* ========== Start / Stop Buttons ========== */
+/* ========== Start / Stop ========== */
 document.getElementById("startBtn").addEventListener("click", async () => {
   if (!model) await init();
   detecting = true;
@@ -253,7 +274,7 @@ document.getElementById("startBtn").addEventListener("click", async () => {
   document.getElementById("detectStatus").textContent = "🟡 Detecting...";
   document.getElementById("status").innerText = "🟡 Detection started...";
   if (writer) await writer.write(new TextEncoder().encode("START\n"));
-  loop();
+  requestAnimationFrame(loop);
 });
 
 document.getElementById("stopBtn").addEventListener("click", async () => {
@@ -285,7 +306,7 @@ async function loadLeaderboard() {
   });
 }
 
-/* ========== Statistics (Fixed Classification) ========== */
+/* ========== Statistics (fixed classification) ========== */
 async function loadStats() {
   const recordsSnap = await db.collectionGroup("records").get();
   let recy = 0, non = 0;
@@ -328,5 +349,7 @@ async function loadRecentRecords() {
 </script>
 </body>
 </html>
+
+
 
 
