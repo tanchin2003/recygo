@@ -2,58 +2,120 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>RecyGo</title>
-
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>♻️ RecyGo</title>
 <link rel="icon" type="image/png" href="logo.jpg">
-  
+
+<!-- Tailwind (quick CDN) -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- Teachable Machine / TensorFlow -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.9.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+
+<!-- Firebase compat (same as your original) -->
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <style>
-  body { font-family: Arial, sans-serif; text-align: center; padding: 20px; background: #f0fff0; }
-  img {margin-top: 20px; border-radius: 10px;}
-  h1 { color: #2a7a2a; }
-  input { padding: 8px; margin: 5px; font-size: 15px; width: 200px; }
-  button { margin: 6px; padding: 10px 18px; cursor: pointer; font-size: 16px; border-radius: 8px; }
-  .score { font-size: 1.5em; margin-top: 10px; color: green; }
-  #webcam-container { margin-top: 10px; }
-  #status { margin-top: 10px; font-weight: bold; }
-  #detectStatus { margin-top: 12px; font-size: 1.2em; }
+  /* small extra styling for webcam canvas responsiveness */
+  #webcam-container canvas {
+    width: 100% !important;
+    height: auto !important;
+    max-width: 320px;
+    border-radius: 0.5rem;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+  }
 </style>
 </head>
-<body>
-  <img src="logo.jpg" alt="RecyGo Logo" width="120">
-  
-  <h1>♻️ RecyGo </h1>
+<body class="bg-green-50 min-h-screen text-gray-800">
 
-  <!-- 👩‍🎓 Login -->
-  <div id="login-section">
-    <h3>👩‍🎓 Enter Your 8-digit Student ID</h3>
-    <input id="studentId" type="text" placeholder="e.g. 20250123" maxlength="8" />
-    <br>
-    <button id="loginBtn">Login / Register</button>
-    <p id="error" style="color:red;"></p>
-  </div>
+  <div class="max-w-4xl mx-auto p-6">
+    <header class="flex items-center gap-4">
+      <img src="logo.jpg" alt="RecyGo Logo" class="w-20 h-20 rounded-2xl object-cover">
+      <div>
+        <h1 class="text-3xl font-extrabold text-green-800">♻️ RecyGo</h1>
+        <p class="text-sm text-green-700">Smart recycling — AI + Arduino + Cloud</p>
+      </div>
+    </header>
 
-  <!-- 🌍 Main Section -->
-  <div id="main-section" style="display:none;">
-    <p>👤 Logged in as: <span id="userId"></span></p>
-    <button id="logoutBtn">Logout</button>
-    <hr>
-    <button id="connectBtn">🔌 Connect Arduino</button>
-    <button id="startBtn">▶️ Start Detection</button>
-    <button id="stopBtn">⏹ Stop Detection</button>
-    <p id="status">Status: Not connected</p>
-    <div id="label">Detected: —</div>
-    <div id="detectStatus">💤 Waiting for detection...</div>
-    <div class="score">🎁 Points: <span id="points">0</span></div>
-    <div id="webcam-container"></div>
+    <!-- LOGIN -->
+    <section id="login-section" class="mt-6 bg-white p-6 rounded-xl shadow">
+      <h3 class="text-lg font-semibold mb-3">👩‍🎓 Enter Your 8-digit Student ID</h3>
+      <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+        <input id="studentId" type="text" placeholder="e.g. 20250123" maxlength="8"
+               class="border rounded-lg px-3 py-2 w-full sm:w-64" />
+        <button id="loginBtn" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition">Login / Register</button>
+        <p id="error" class="text-sm text-red-600"></p>
+      </div>
+      <p class="mt-3 text-sm text-gray-500">Your points and history are saved to cloud (Firebase).</p>
+    </section>
+
+    <!-- MAIN -->
+    <section id="main-section" class="hidden mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- Left column: controls + webcam -->
+      <div class="bg-white p-6 rounded-xl shadow">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <p class="text-sm text-gray-500">👤 Logged in as</p>
+            <p id="userId" class="font-medium text-lg text-green-700">—</p>
+          </div>
+          <div class="text-right">
+            <p class="text-sm text-gray-500">🎁 Points</p>
+            <p id="points" class="text-2xl font-bold text-green-600">0</p>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap gap-3 mb-4">
+          <button id="connectBtn" class="px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200">🔌 Connect Arduino</button>
+          <button id="startBtn" class="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">▶️ Start Detection</button>
+          <button id="stopBtn" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">⏹ Stop Detection</button>
+          <button id="logoutBtn" class="px-3 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Logout</button>
+        </div>
+
+        <p id="status" class="text-sm text-gray-600 mb-2">Status: Not connected</p>
+
+        <div id="label" class="mb-2 text-base font-medium">Detected: —</div>
+        <div id="detectStatus" class="mb-4 text-sm text-gray-500">💤 Waiting for detection...</div>
+
+        <div id="webcam-container" class="mx-auto"></div>
+      </div>
+
+      <!-- Right column: leaderboard & stats -->
+      <div class="bg-white p-6 rounded-xl shadow space-y-6">
+        <!-- Leaderboard -->
+        <div>
+          <h2 class="text-xl font-semibold text-green-800 mb-2">🏆 Top Recyclers</h2>
+          <ul id="leaderboardList" class="space-y-2"></ul>
+        </div>
+
+        <!-- Chart -->
+        <div>
+          <h2 class="text-xl font-semibold text-green-800 mb-2">📊 回收統計</h2>
+          <canvas id="chart" class="w-full max-w-md"></canvas>
+          <p id="chartNote" class="text-sm text-gray-500 mt-2">Note: Data aggregated from all students' records.</p>
+        </div>
+
+        <!-- Recent records (for current user) -->
+        <div>
+          <h3 class="text-lg font-medium text-green-700 mb-2">📝 Recent Activity</h3>
+          <ul id="recentList" class="text-sm space-y-1 max-h-48 overflow-auto"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- small footer / admin link -->
+    <footer class="mt-6 text-center text-sm text-gray-600">
+      <a href="#" id="adminLink" class="underline">Admin Dashboard</a> — (開發中，可另外建立 admin.html)
+    </footer>
   </div>
 
 <script>
-/* -------------------- 🔥 Firebase Setup -------------------- */
+/* ===================== Firebase Setup ===================== */
 const firebaseConfig = {
   apiKey: "AIzaSyAjWXFfQT_5dBtDZvYFwyj4kGfeWQdcCBU",
   authDomain: "recygo-cd169.firebaseapp.com",
@@ -66,7 +128,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-/* -------------------- 🌐 Variables -------------------- */
+/* ===================== Globals ===================== */
 const URL = "https://teachablemachine.withgoogle.com/models/YSmHvTp9K/";
 let model, webcam, port, writer;
 let detecting = false;
@@ -76,7 +138,9 @@ let lastLabel = "", stableCount = 0, lastConfirmedLabel = "";
 const STABLE_THRESHOLD = 3;
 const detectStatus = document.getElementById("detectStatus");
 
-/* -------------------- 👩‍🎓 Login System -------------------- */
+let pieChart = null;
+
+/* ===================== Login / Logout ===================== */
 document.getElementById("loginBtn").addEventListener("click", async () => {
   const id = document.getElementById("studentId").value.trim();
   const errorMsg = document.getElementById("error");
@@ -84,32 +148,45 @@ document.getElementById("loginBtn").addEventListener("click", async () => {
     errorMsg.textContent = "⚠️ Please enter a valid 8-digit Student ID";
     return;
   }
-
-  currentStudentId = id;
   errorMsg.textContent = "⏳ Logging in...";
-  const docRef = db.collection("students").doc(id);
-  const docSnap = await docRef.get();
+  currentStudentId = id;
 
-  if (docSnap.exists) rewardPoints = docSnap.data().points || 0;
-  else {
-    await docRef.set({ points: 0 });
-    rewardPoints = 0;
+  try {
+    const docRef = db.collection("students").doc(id);
+    const docSnap = await docRef.get();
+
+    if (docSnap.exists) rewardPoints = docSnap.data().points || 0;
+    else {
+      await docRef.set({ points: 0 });
+      rewardPoints = 0;
+    }
+
+    // update UI
+    document.getElementById("points").innerText = rewardPoints;
+    document.getElementById("userId").innerText = id;
+    document.getElementById("login-section").style.display = "none";
+    document.getElementById("main-section").style.display = "grid";
+
+    // load leaderboard and stats & recent activities
+    await loadLeaderboard();
+    await loadStats();
+    await loadRecentRecords();
+    errorMsg.textContent = "";
+  } catch (err) {
+    errorMsg.textContent = "❌ Login error: " + err;
   }
-
-  document.getElementById("points").innerText = rewardPoints;
-  document.getElementById("userId").innerText = id;
-  document.getElementById("login-section").style.display = "none";
-  document.getElementById("main-section").style.display = "block";
 });
 
 document.getElementById("logoutBtn").addEventListener("click", () => {
   currentStudentId = null;
   rewardPoints = 0;
+  document.getElementById("points").innerText = "0";
   document.getElementById("login-section").style.display = "block";
   document.getElementById("main-section").style.display = "none";
+  document.getElementById("studentId").value = "";
 });
 
-/* -------------------- 🤖 Arduino + AI -------------------- */
+/* ===================== Arduino Connect (Web Serial) ===================== */
 document.getElementById("connectBtn").addEventListener("click", async () => {
   try {
     port = await navigator.serial.requestPort();
@@ -118,22 +195,25 @@ document.getElementById("connectBtn").addEventListener("click", async () => {
     document.getElementById("status").innerText = "✅ Arduino Connected";
   } catch (err) {
     alert("❌ Connection failed: " + err);
+    document.getElementById("status").innerText = "❌ Arduino connection failed";
   }
 });
 
+/* ===================== Teachable Machine Init ===================== */
 async function init() {
+  if (model) return;
   const modelURL = URL + "model.json";
   const metadataURL = URL + "metadata.json";
   model = await tmImage.load(modelURL, metadataURL);
   const flip = true;
-  webcam = new tmImage.Webcam(200, 200, flip);
+  webcam = new tmImage.Webcam(320, 320, flip); // larger canvas for better accuracy
   await webcam.setup();
   await webcam.play();
   document.getElementById("webcam-container").innerHTML = "";
   document.getElementById("webcam-container").appendChild(webcam.canvas);
 }
 
-/* -------------------- 🔁 Detection Loop -------------------- */
+/* ===================== Detection Loop ===================== */
 async function loop() {
   webcam.update();
   await predict();
@@ -143,8 +223,7 @@ async function loop() {
 async function predict() {
   const prediction = await model.predict(webcam.canvas);
   let highest = prediction[0];
-  for (let p of prediction)
-    if (p.probability > highest.probability) highest = p;
+  for (let p of prediction) if (p.probability > highest.probability) highest = p;
 
   const className = highest.className.trim().toLowerCase();
   const confidence = highest.probability;
@@ -159,31 +238,73 @@ async function predict() {
   }
 }
 
-/* -------------------- 🎯 Detection Result -------------------- */
+/* ===================== Scoring & DB Recording ===================== */
 async function handleStableDetection(label) {
   if (label === lastConfirmedLabel) return;
   lastConfirmedLabel = label;
 
   let msg = "";
+  let pointsToAdd = 0;
+
   if (label === "recyclable") {
     msg = "RECYCLABLE\n";
     detectStatus.textContent = "✅ Recyclable detected!";
     detectStatus.style.color = "green";
-    rewardPoints++;
-    document.getElementById("points").innerText = rewardPoints;
-    if (currentStudentId)
-      await db.collection("students").doc(currentStudentId).update({ points: rewardPoints });
-  } 
-  else if (label === "non-recyclable") {
+    pointsToAdd = 5;
+  } else if (label === "non-recyclable" || label === "non recyclable" || label === "nonrecyclable") {
     msg = "NONRECYCLABLE\n";
     detectStatus.textContent = "🚫 Non-recyclable detected!";
     detectStatus.style.color = "red";
+    pointsToAdd = 1;
+  } else {
+    // unknown class - ignore
+    detectStatus.textContent = "⚠️ Unknown label: " + label;
+    detectStatus.style.color = "#666";
+    return;
   }
 
-  if (writer) await writer.write(new TextEncoder().encode(msg));
+  // update local points and UI
+  rewardPoints += pointsToAdd;
+  document.getElementById("points").innerText = rewardPoints;
+
+  // write to Arduino if connected
+  if (writer) {
+    try { await writer.write(new TextEncoder().encode(msg)); }
+    catch(err) { console.warn("Write failed:", err); }
+  }
+
+  // write to Firestore: update total points & add a record entry
+  if (currentStudentId) {
+    try {
+      const studentRef = db.collection("students").doc(currentStudentId);
+      // Using transaction to avoid overwriting points if concurrent
+      await db.runTransaction(async (transaction) => {
+        const doc = await transaction.get(studentRef);
+        if (!doc.exists) {
+          transaction.set(studentRef, { points: rewardPoints });
+        } else {
+          transaction.update(studentRef, { points: rewardPoints });
+        }
+      });
+
+      await studentRef.collection("records").add({
+        label: label,
+        pointsAdded: pointsToAdd,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      // reload lightweight UI parts
+      await loadLeaderboard();
+      await loadStats();
+      await loadRecentRecords();
+
+    } catch (err) {
+      console.error("Firestore write error:", err);
+    }
+  }
 }
 
-/* -------------------- ▶️ Start / Stop -------------------- */
+/* ===================== Start / Stop ===================== */
 document.getElementById("startBtn").addEventListener("click", async () => {
   if (!model) await init();
   detecting = true;
@@ -191,7 +312,10 @@ document.getElementById("startBtn").addEventListener("click", async () => {
   detectStatus.textContent = "🟡 Detecting...";
   detectStatus.style.color = "#555";
   document.getElementById("status").innerText = "🟡 Detection started...";
-  if (writer) await writer.write(new TextEncoder().encode("START\n"));
+  if (writer) {
+    try { await writer.write(new TextEncoder().encode("START\n")); }
+    catch(e){ console.warn("start write err", e); }
+  }
   loop();
 });
 
@@ -200,14 +324,120 @@ document.getElementById("stopBtn").addEventListener("click", async () => {
   detectStatus.textContent = "💤 Detection stopped.";
   detectStatus.style.color = "#444";
   document.getElementById("status").innerText = "🟠 Detection stopped";
-  if (writer) await writer.write(new TextEncoder().encode("STOP\n"));
+  if (writer) {
+    try { await writer.write(new TextEncoder().encode("STOP\n")); }
+    catch(e){ console.warn("stop write err", e); }
+  }
 });
+
+/* ===================== Leaderboard ===================== */
+async function loadLeaderboard() {
+  try {
+    const snapshot = await db.collection("students").orderBy("points", "desc").limit(5).get();
+    const list = document.getElementById("leaderboardList");
+    list.innerHTML = "";
+    if (snapshot.empty) {
+      list.innerHTML = `<li class="p-2 bg-gray-50 rounded-md">No data yet</li>`;
+      return;
+    }
+    let rank = 1;
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      const score = data.points || 0;
+      const isMe = (doc.id === currentStudentId);
+      list.innerHTML += `
+        <li class="flex items-center justify-between p-2 rounded-md ${isMe ? 'bg-green-50 border border-green-100' : 'bg-white'}">
+          <div class="text-sm truncate"><span class="font-semibold">#${rank}</span> &nbsp; ${doc.id}</div>
+          <div class="text-sm font-medium text-green-700">${score} pts</div>
+        </li>`;
+      rank++;
+    });
+  } catch (err) {
+    console.error("Leaderboard load error:", err);
+  }
+}
+
+/* ===================== Stats Chart ===================== */
+async function loadStats() {
+  try {
+    // aggregate counts across all students' records using collectionGroup
+    const recordsSnap = await db.collectionGroup("records").get();
+    let recy = 0, non = 0;
+    recordsSnap.forEach(r => {
+      const d = r.data();
+      if (!d || !d.label) return;
+      const lb = String(d.label).toLowerCase();
+      if (lb.includes("recycl")) recy++;
+      else non++;
+    });
+
+    const ctx = document.getElementById("chart").getContext('2d');
+
+    const data = {
+      labels: ["Recyclable", "Non-recyclable"],
+      datasets: [{
+        label: 'Count',
+        data: [recy, non],
+        // Chart.js colors will be default; explicit colors look nicer but are optional
+        backgroundColor: ["#16a34a", "#ef4444"]
+      }]
+    };
+
+    if (pieChart) {
+      pieChart.data = data;
+      pieChart.update();
+    } else {
+      pieChart = new Chart(ctx, {
+        type: 'pie',
+        data: data,
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'bottom' }
+          }
+        }
+      });
+    }
+  } catch (err) {
+    console.error("Stats load error:", err);
+  }
+}
+
+/* ===================== Recent records for current user ===================== */
+async function loadRecentRecords() {
+  const recentList = document.getElementById("recentList");
+  recentList.innerHTML = "";
+  if (!currentStudentId) return;
+  try {
+    const q = await db.collection("students").doc(currentStudentId)
+                  .collection("records").orderBy("timestamp", "desc").limit(10).get();
+    if (q.empty) {
+      recentList.innerHTML = `<li class="text-sm text-gray-500">No recent activity</li>`;
+      return;
+    }
+    q.forEach(doc => {
+      const d = doc.data();
+      const t = d.timestamp ? d.timestamp.toDate().toLocaleString() : "—";
+      const points = d.pointsAdded || 0;
+      const label = d.label || '—';
+      recentList.innerHTML += `<li class="text-sm"><span class="font-medium">${label}</span> &middot; +${points} pts <span class="text-gray-400">(${t})</span></li>`;
+    });
+  } catch (err) {
+    console.error("Recent load error:", err);
+  }
+}
+
+/* ===================== admin link (placeholder) ===================== */
+document.getElementById("adminLink").addEventListener("click", (e) => {
+  e.preventDefault();
+  alert("Admin Dashboard 可建立為獨立頁面 (admin.html)。建議功能：全體排行榜、按時間篩選、匯出 CSV、調整分數規則。");
+});
+
+/* ===================== Initialize small things ===================== */
+// If you want to load a pre-rendered leaderboard or auto-login dev account,
+// you can implement here. Currently waits for user login.
+
+// Responsive note: Tailwind handles RWD. Ensure test on mobile and desktop.
 </script>
 </body>
 </html>
-
-
-
-
-
-
