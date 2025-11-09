@@ -30,6 +30,7 @@
 }
 </style>
 </head>
+
 <body class="bg-gradient-to-br from-green-50 to-green-100 min-h-screen flex flex-col items-center justify-center text-gray-800">
 
 <!-- ========== Login Page ========== -->
@@ -41,12 +42,14 @@
   <h3 class="text-lg font-semibold mb-3">👩‍🎓 Enter Your 8-digit Student ID</h3>
   <input id="studentId" type="text" placeholder="e.g. 20250123" maxlength="8"
         class="border-2 border-green-300 rounded-lg px-4 py-2 w-72 text-center focus:outline-none focus:border-green-500 transition mb-3" />
-  <input id="password" type="password" placeholder="Admin Password (optional)"
-        class="border-2 border-green-300 rounded-lg px-4 py-2 w-72 text-center focus:outline-none focus:border-green-500 transition mb-3" />
   <button id="loginBtn"
-          class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition w-72">Login / Register</button>
+          class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition w-72">Login</button>
   <p id="error" class="text-sm text-red-600 mt-2"></p>
-  <p class="text-xs text-gray-500 mt-3">Students: Enter your ID only<br>Admins: Enter ID + Password</p>
+
+  <!-- admin shortcut -->
+  <p class="text-xs text-gray-500 mt-4">
+    🔒 <a href="admin.html" class="underline hover:text-green-700">Admin Login</a>
+  </p>
 </section>
 
 <!-- ========== Main Section ========== -->
@@ -69,7 +72,7 @@
       <div class="flex flex-wrap gap-3 mb-4">
         <button id="connectBtn" class="px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200">🔌 Connect Arduino</button>
         <button id="startBtn" class="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">▶️ Start Detection</button>
-        <button id="stopBtn" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">⏹ Stop Detection</button>
+        <button id="stopBtn" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">⏹ Stop</button>
         <button id="logoutBtn" class="px-3 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Logout</button>
       </div>
 
@@ -115,10 +118,7 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 /* ========== Globals ========== */
-const URL = "https://teachablemachine.withgoogle.com/models/WFZJS2Vtw/"; // new model
-const ADMIN_ID = "admin";
-const ADMIN_PASS = "recygo123";
-
+const URL = "https://teachablemachine.withgoogle.com/models/WFZJS2Vtw/";
 let model, webcam, port, writer;
 let detecting = false;
 let rewardPoints = 0;
@@ -127,23 +127,12 @@ let lastLabel = "", stableCount = 0, lastConfirmedLabel = "";
 const STABLE_THRESHOLD = 3;
 let pieChart = null;
 
-/* ========== Login System ========== */
+/* ========== Login ========== */
 document.getElementById("loginBtn").addEventListener("click", async () => {
   const id = document.getElementById("studentId").value.trim();
-  const pass = document.getElementById("password").value.trim();
   const errorMsg = document.getElementById("error");
+  if (!/^\d{8}$/.test(id)) return errorMsg.textContent = "⚠️ Please enter a valid 8-digit ID";
 
-  if (!id) return errorMsg.textContent = "⚠️ Please enter your ID";
-
-  // 🔐 Admin Login
-  if (id.toLowerCase() === ADMIN_ID && pass === ADMIN_PASS) {
-    window.location.href = "admin.html";
-    return;
-  } else if (id.toLowerCase() === ADMIN_ID && !pass) {
-    return errorMsg.textContent = "⚠️ Admin password required!";
-  }
-
-  // 🧍 Student Login
   errorMsg.textContent = "⏳ Logging in...";
   currentStudentId = id;
   const docRef = db.collection("students").doc(id);
@@ -170,7 +159,6 @@ document.getElementById("logoutBtn").addEventListener("click", () => {
   document.getElementById("login-section").classList.remove("hidden");
   document.getElementById("main-section").classList.add("hidden");
   document.getElementById("studentId").value = "";
-  document.getElementById("password").value = "";
 });
 
 /* ========== Arduino Connect ========== */
@@ -186,7 +174,7 @@ document.getElementById("connectBtn").addEventListener("click", async () => {
   }
 });
 
-/* ========== AI Init ========== */
+/* ========== AI Init + Detect ========== */
 async function init() {
   if (model) return;
   model = await tmImage.load(URL + "model.json", URL + "metadata.json");
@@ -198,7 +186,6 @@ async function init() {
   document.getElementById("webcam-container").appendChild(webcam.canvas);
 }
 
-/* ========== Detection ========== */
 async function loop() {
   webcam.update();
   await predict();
@@ -223,7 +210,7 @@ async function predict() {
   }
 }
 
-/* ========== Stable Detection Handler ========== */
+/* ========== Handle Stable Detection ========== */
 async function handleStableDetection(label) {
   if (label === lastConfirmedLabel) return;
   lastConfirmedLabel = label;
@@ -262,7 +249,7 @@ async function handleStableDetection(label) {
   }
 }
 
-/* ========== Start / Stop ========== */
+/* ========== Buttons ========== */
 document.getElementById("startBtn").addEventListener("click", async () => {
   if (!model) await init();
   detecting = true;
@@ -280,7 +267,7 @@ document.getElementById("stopBtn").addEventListener("click", async () => {
   if (writer) await writer.write(new TextEncoder().encode("STOP\n"));
 });
 
-/* ========== Leaderboard ========== */
+/* ========== Leaderboard & Stats ========== */
 async function loadLeaderboard() {
   const snapshot = await db.collection("students").orderBy("points", "desc").limit(5).get();
   const list = document.getElementById("leaderboardList");
@@ -302,7 +289,6 @@ async function loadLeaderboard() {
   });
 }
 
-/* ========== Statistics ========== */
 async function loadStats() {
   const recordsSnap = await db.collectionGroup("records").get();
   let non = 0, plastic = 0, pet = 0, metal = 0;
@@ -323,7 +309,6 @@ async function loadStats() {
   else pieChart = new Chart(ctx, { type: 'pie', data: data, options: { responsive: true, plugins: { legend: { position: 'bottom' } } } });
 }
 
-/* ========== Recent Activity ========== */
 async function loadRecentRecords() {
   const list = document.getElementById("recentList");
   list.innerHTML = "";
