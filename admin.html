@@ -69,7 +69,6 @@ document.getElementById("loginAdminBtn").addEventListener("click", () => {
   const errorMsg = document.getElementById("errorMsg");
 
   if (input === ADMIN_PASSWORD) {
-    // 顯示 dashboard
     document.getElementById("loginBox").classList.add("hidden");
     document.getElementById("dashboard").classList.remove("hidden");
     loadStudents();
@@ -100,7 +99,7 @@ async function loadStudents() {
         <td class="p-2">${doc.id}</td>
         <td class="p-2">${data.points || 0}</td>
         <td class="p-2">
-          <button onclick="redeemPoints('${doc.id}')" class="bg-yellow-500 text-white px-3 py-1 rounded">Redeem (-10)</button>
+          <button onclick="redeemPoints('${doc.id}')" class="bg-yellow-500 text-white px-3 py-1 rounded">Redeem</button>
           <button onclick="resetPoints('${doc.id}')" class="bg-red-500 text-white px-3 py-1 rounded ml-2">Reset</button>
         </td>
       </tr>`;
@@ -110,20 +109,27 @@ async function loadStudents() {
 
 /* ================= Redeem & Reset ================= */
 async function redeemPoints(id) {
-  if (confirm("Redeem 10 points for " + id + "?")) {
-    const ref = db.collection("students").doc(id);
-    const docSnap = await ref.get();
-    const current = docSnap.data()?.points || 0;
-    await ref.update({ points: Math.max(0, current - 10) });
-    alert("Redeemed 10 points for " + id);
-    loadStudents();
+  const amountStr = prompt("Enter points to redeem for " + id + ":", "10");
+  if (!amountStr) return; // cancel
+  const amount = parseInt(amountStr);
+  if (isNaN(amount) || amount <= 0) { alert("❌ Invalid number"); return; }
+
+  const ref = db.collection("students").doc(id);
+  const docSnap = await ref.get();
+  const current = docSnap.data()?.points || 0;
+  if (current < amount) {
+    alert("⚠️ Not enough points! Current: " + current);
+    return;
   }
+  await ref.update({ points: current - amount });
+  alert(`✅ Deducted ${amount} points from ${id}`);
+  loadStudents();
 }
 
 async function resetPoints(id) {
   if (confirm("Reset points for " + id + "?")) {
     await db.collection("students").doc(id).update({ points: 0 });
-    alert("Points reset for " + id);
+    alert("✅ Points reset for " + id);
     loadStudents();
   }
 }
@@ -155,7 +161,7 @@ async function loadStats() {
   });
 }
 
-/* ================= Refresh Button ================= */
+/* ================= Refresh ================= */
 document.getElementById("refreshBtn")?.addEventListener("click", loadStudents);
 </script>
 </body>
