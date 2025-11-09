@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>♻️ RecyGo </title>
+<title>♻️ RecyGo</title>
 <link rel="icon" type="image/png" href="logo.jpg">
 
 <!-- Tailwind -->
@@ -30,74 +30,75 @@
 }
 </style>
 </head>
-
 <body class="bg-gradient-to-br from-green-50 to-green-100 min-h-screen flex flex-col items-center justify-center text-gray-800">
 
-  <!-- Login Section -->
-  <section id="login-section" class="bg-white p-8 rounded-2xl shadow-xl w-11/12 max-w-md text-center">
-    <img src="logo.jpg" alt="RecyGo Logo" class="mx-auto w-24 h-24 rounded-xl mb-3">
-    <h1 class="text-3xl font-extrabold text-green-800 mb-2">♻️ RecyGo</h1>
-    <p class="text-green-700 mb-6">Smart recycling — AI + Arduino + Cloud</p>
+<!-- ========== Login Page ========== -->
+<section id="login-section" class="bg-white p-8 rounded-2xl shadow-xl w-11/12 max-w-md text-center">
+  <img src="logo.jpg" alt="RecyGo Logo" class="mx-auto w-24 h-24 rounded-xl mb-3">
+  <h1 class="text-3xl font-extrabold text-green-800 mb-2">♻️ RecyGo</h1>
+  <p class="text-green-700 mb-6">Smart Recycling — AI + Arduino + Cloud</p>
 
-    <h3 class="text-lg font-semibold mb-3">👩‍🎓 Enter Your 8-digit Student ID</h3>
-    <input id="studentId" type="text" placeholder="e.g. 20250123" maxlength="8"
-           class="border-2 border-green-300 rounded-lg px-4 py-2 w-72 text-center focus:outline-none focus:border-green-500 transition mb-3" />
-    <button id="loginBtn"
-            class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition w-72">Login / Register</button>
-    <p id="error" class="text-sm text-red-600 mt-2"></p>
-    <p class="text-xs text-gray-500 mt-3">Your points and records are stored in Firebase Cloud.</p>
-  </section>
+  <h3 class="text-lg font-semibold mb-3">👩‍🎓 Enter Your 8-digit Student ID</h3>
+  <input id="studentId" type="text" placeholder="e.g. 20250123" maxlength="8"
+        class="border-2 border-green-300 rounded-lg px-4 py-2 w-72 text-center focus:outline-none focus:border-green-500 transition mb-3" />
+  <input id="password" type="password" placeholder="Admin Password (optional)"
+        class="border-2 border-green-300 rounded-lg px-4 py-2 w-72 text-center focus:outline-none focus:border-green-500 transition mb-3" />
+  <button id="loginBtn"
+          class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition w-72">Login / Register</button>
+  <p id="error" class="text-sm text-red-600 mt-2"></p>
+  <p class="text-xs text-gray-500 mt-3">Students: Enter your ID only<br>Admins: Enter ID + Password</p>
+</section>
 
-  <!-- Main Section -->
-  <section id="main-section" class="hidden w-full max-w-5xl mx-auto p-6">
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<!-- ========== Main Section ========== -->
+<section id="main-section" class="hidden w-full max-w-5xl mx-auto p-6">
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-      <!-- Left: Detection Panel -->
-      <div class="bg-white p-6 rounded-xl shadow">
-        <div class="flex items-center justify-between mb-3">
-          <div>
-            <p class="text-sm text-gray-500">👤 Logged in as</p>
-            <p id="userId" class="font-medium text-lg text-green-700">—</p>
-          </div>
-          <div class="text-right">
-            <p class="text-sm text-gray-500">🎁 Points</p>
-            <p id="points" class="text-2xl font-bold text-green-600">0</p>
-          </div>
+    <!-- Left: Detection Panel -->
+    <div class="bg-white p-6 rounded-xl shadow">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <p class="text-sm text-gray-500">👤 Logged in as</p>
+          <p id="userId" class="font-medium text-lg text-green-700">—</p>
         </div>
-
-        <div class="flex flex-wrap gap-3 mb-4">
-          <button id="connectBtn" class="px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200">🔌 Connect Arduino</button>
-          <button id="startBtn" class="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">▶️ Start Detection</button>
-          <button id="stopBtn" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">⏹ Stop Detection</button>
-          <button id="logoutBtn" class="px-3 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Logout</button>
+        <div class="text-right">
+          <p class="text-sm text-gray-500">🎁 Points</p>
+          <p id="points" class="text-2xl font-bold text-green-600">0</p>
         </div>
-
-        <p id="status" class="text-sm text-gray-600 mb-2">Status: Not connected</p>
-        <div id="label" class="mb-2 text-base font-medium">Detected: —</div>
-        <div id="detectStatus" class="mb-4 text-sm text-gray-500">💤 Waiting for detection...</div>
-
-        <div id="webcam-container" class="mx-auto"></div>
       </div>
 
-      <!-- Right: Leaderboard + Chart -->
-      <div class="bg-white p-6 rounded-xl shadow space-y-6">
-        <div>
-          <h2 class="text-xl font-semibold text-green-800 mb-2">🏆 Top Recyclers</h2>
-          <ul id="leaderboardList" class="space-y-2"></ul>
-        </div>
+      <div class="flex flex-wrap gap-3 mb-4">
+        <button id="connectBtn" class="px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200">🔌 Connect Arduino</button>
+        <button id="startBtn" class="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">▶️ Start Detection</button>
+        <button id="stopBtn" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">⏹ Stop Detection</button>
+        <button id="logoutBtn" class="px-3 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Logout</button>
+      </div>
 
-        <div>
-          <h2 class="text-xl font-semibold text-green-800 mb-2">📊 Recycling Statistics</h2>
-          <canvas id="chart" class="w-full max-w-md"></canvas>
-        </div>
+      <p id="status" class="text-sm text-gray-600 mb-2">Status: Not connected</p>
+      <div id="label" class="mb-2 text-base font-medium">Detected: —</div>
+      <div id="detectStatus" class="mb-4 text-sm text-gray-500">💤 Waiting for detection...</div>
 
-        <div>
-          <h3 class="text-lg font-medium text-green-700 mb-2">📝 Recent Activity</h3>
-          <ul id="recentList" class="text-sm space-y-1 max-h-48 overflow-auto"></ul>
-        </div>
+      <div id="webcam-container" class="mx-auto text-center"></div>
+    </div>
+
+    <!-- Right: Leaderboard + Chart -->
+    <div class="bg-white p-6 rounded-xl shadow space-y-6">
+      <div>
+        <h2 class="text-xl font-semibold text-green-800 mb-2">🏆 Top Recyclers</h2>
+        <ul id="leaderboardList" class="space-y-2"></ul>
+      </div>
+
+      <div>
+        <h2 class="text-xl font-semibold text-green-800 mb-2">📊 Recycling Statistics</h2>
+        <canvas id="chart" class="w-full max-w-md"></canvas>
+      </div>
+
+      <div>
+        <h3 class="text-lg font-medium text-green-700 mb-2">📝 Recent Activity</h3>
+        <ul id="recentList" class="text-sm space-y-1 max-h-48 overflow-auto"></ul>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
 <script>
 /* ========== Firebase Setup ========== */
@@ -114,7 +115,10 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 /* ========== Globals ========== */
-const URL = "https://teachablemachine.withgoogle.com/models/WFZJS2Vtw/";
+const URL = "https://teachablemachine.withgoogle.com/models/WFZJS2Vtw/"; // new model
+const ADMIN_ID = "admin";
+const ADMIN_PASS = "recygo123";
+
 let model, webcam, port, writer;
 let detecting = false;
 let rewardPoints = 0;
@@ -123,17 +127,25 @@ let lastLabel = "", stableCount = 0, lastConfirmedLabel = "";
 const STABLE_THRESHOLD = 3;
 let pieChart = null;
 
-/* ========== Login ========== */
+/* ========== Login System ========== */
 document.getElementById("loginBtn").addEventListener("click", async () => {
   const id = document.getElementById("studentId").value.trim();
+  const pass = document.getElementById("password").value.trim();
   const errorMsg = document.getElementById("error");
-  if (!/^\d{8}$/.test(id)) {
-    errorMsg.textContent = "⚠️ Please enter a valid 8-digit Student ID";
+
+  if (!id) return errorMsg.textContent = "⚠️ Please enter your ID";
+
+  // 🔐 Admin Login
+  if (id.toLowerCase() === ADMIN_ID && pass === ADMIN_PASS) {
+    window.location.href = "admin.html";
     return;
+  } else if (id.toLowerCase() === ADMIN_ID && !pass) {
+    return errorMsg.textContent = "⚠️ Admin password required!";
   }
+
+  // 🧍 Student Login
   errorMsg.textContent = "⏳ Logging in...";
   currentStudentId = id;
-
   const docRef = db.collection("students").doc(id);
   const docSnap = await docRef.get();
   if (docSnap.exists) rewardPoints = docSnap.data().points || 0;
@@ -158,6 +170,7 @@ document.getElementById("logoutBtn").addEventListener("click", () => {
   document.getElementById("login-section").classList.remove("hidden");
   document.getElementById("main-section").classList.add("hidden");
   document.getElementById("studentId").value = "";
+  document.getElementById("password").value = "";
 });
 
 /* ========== Arduino Connect ========== */
@@ -185,7 +198,7 @@ async function init() {
   document.getElementById("webcam-container").appendChild(webcam.canvas);
 }
 
-/* ========== Detection Loop ========== */
+/* ========== Detection ========== */
 async function loop() {
   webcam.update();
   await predict();
@@ -215,38 +228,21 @@ async function handleStableDetection(label) {
   if (label === lastConfirmedLabel) return;
   lastConfirmedLabel = label;
 
+  let msg = "", pointsToAdd = 0;
   const ds = document.getElementById("detectStatus");
-  let msg = "", pointsToAdd = 0, color = "gray", messageText = "";
 
-  switch (label) {
+  switch(label) {
     case "non-recyclable":
-      msg = "NONRECYCLABLE\n";
-      messageText = "🚫 Non-Recyclable detected!";
-      color = "red"; pointsToAdd = 1;
-      break;
+      msg = "NONRECYCLABLE\n"; ds.textContent = "🚫 Non-recyclable detected!"; ds.style.color = "red"; pointsToAdd = 1; break;
     case "plastic":
-      msg = "PLASTIC\n";
-      messageText = "🧴 Plastic detected!";
-      color = "blue"; pointsToAdd = 3;
-      break;
+      msg = "PLASTIC\n"; ds.textContent = "♻️ Plastic detected!"; ds.style.color = "blue"; pointsToAdd = 3; break;
     case "pet bottle":
-      msg = "PETBOTTLE\n";
-      messageText = "🥤 PET Bottle detected!";
-      color = "green"; pointsToAdd = 5;
-      break;
+      msg = "PETBOTTLE\n"; ds.textContent = "🥤 PET Bottle detected!"; ds.style.color = "green"; pointsToAdd = 5; break;
     case "metal":
-      msg = "METAL\n";
-      messageText = "⚙️ Metal detected!";
-      color = "orange"; pointsToAdd = 4;
-      break;
+      msg = "METAL\n"; ds.textContent = "🔩 Metal detected!"; ds.style.color = "gray"; pointsToAdd = 4; break;
     default:
-      ds.textContent = "⚠️ Unknown label: " + label;
-      ds.style.color = "#666";
-      return;
+      ds.textContent = "⚠️ Unknown label: " + label; ds.style.color = "#666"; return;
   }
-
-  ds.textContent = messageText;
-  ds.style.color = color;
 
   rewardPoints += pointsToAdd;
   document.getElementById("points").innerText = rewardPoints;
@@ -311,8 +307,7 @@ async function loadStats() {
   const recordsSnap = await db.collectionGroup("records").get();
   let non = 0, plastic = 0, pet = 0, metal = 0;
   recordsSnap.forEach(r => {
-    const d = r.data(); if (!d || !d.label) return;
-    const lb = String(d.label).toLowerCase();
+    const lb = String(r.data().label).toLowerCase();
     if (lb === "non-recyclable") non++;
     else if (lb === "plastic") plastic++;
     else if (lb === "pet bottle") pet++;
@@ -322,16 +317,10 @@ async function loadStats() {
   const ctx = document.getElementById("chart").getContext('2d');
   const data = {
     labels: ["Non-recyclable", "Plastic", "PET Bottle", "Metal"],
-    datasets: [{ data: [non, plastic, pet, metal], backgroundColor: ["#ef4444", "#3b82f6", "#16a34a", "#f97316"] }]
+    datasets: [{ data: [non, plastic, pet, metal], backgroundColor: ["#ef4444", "#3b82f6", "#16a34a", "#6b7280"] }]
   };
   if (pieChart) { pieChart.data = data; pieChart.update(); }
-  else {
-    pieChart = new Chart(ctx, {
-      type: 'pie',
-      data: data,
-      options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
-    });
-  }
+  else pieChart = new Chart(ctx, { type: 'pie', data: data, options: { responsive: true, plugins: { legend: { position: 'bottom' } } } });
 }
 
 /* ========== Recent Activity ========== */
@@ -350,4 +339,3 @@ async function loadRecentRecords() {
 </script>
 </body>
 </html>
-
