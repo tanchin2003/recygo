@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>♻️ RecyGo</title>
+<title>♻️ RecyGo (Multi-Category)</title>
 <link rel="icon" type="image/png" href="logo.jpg">
 
 <!-- Tailwind -->
@@ -30,6 +30,7 @@
 }
 </style>
 </head>
+
 <body class="bg-gradient-to-br from-green-50 to-green-100 min-h-screen flex flex-col items-center justify-center text-gray-800">
 
   <!-- Login Section -->
@@ -75,8 +76,7 @@
         <div id="label" class="mb-2 text-base font-medium">Detected: —</div>
         <div id="detectStatus" class="mb-4 text-sm text-gray-500">💤 Waiting for detection...</div>
 
-        <!-- ✅ Camera container centered -->
-        <div id="webcam-container" class="flex justify-center mx-auto"></div>
+        <div id="webcam-container" class="mx-auto"></div>
       </div>
 
       <!-- Right: Leaderboard + Chart -->
@@ -89,7 +89,6 @@
         <div>
           <h2 class="text-xl font-semibold text-green-800 mb-2">📊 Recycling Statistics</h2>
           <canvas id="chart" class="w-full max-w-md"></canvas>
-          <p id="chartNote" class="text-sm text-gray-500 mt-2">Data collected from all users' records.</p>
         </div>
 
         <div>
@@ -101,11 +100,6 @@
   </section>
 
 <script>
-/* 📱 Auto redirect if mobile device */
-if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-  window.location.href = "mobile.html";
-}
-
 /* ========== Firebase Setup ========== */
 const firebaseConfig = {
   apiKey: "AIzaSyAjWXFfQT_5dBtDZvYFwyj4kGfeWQdcCBU",
@@ -120,7 +114,7 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 /* ========== Globals ========== */
-const URL = "https://teachablemachine.withgoogle.com/models/YSmHvTp9K/";
+const URL = "https://teachablemachine.withgoogle.com/models/WFZJS2Vtw/";
 let model, webcam, port, writer;
 let detecting = false;
 let rewardPoints = 0;
@@ -129,7 +123,7 @@ let lastLabel = "", stableCount = 0, lastConfirmedLabel = "";
 const STABLE_THRESHOLD = 3;
 let pieChart = null;
 
-/* ========== Login System ========== */
+/* ========== Login ========== */
 document.getElementById("loginBtn").addEventListener("click", async () => {
   const id = document.getElementById("studentId").value.trim();
   const errorMsg = document.getElementById("error");
@@ -156,6 +150,7 @@ document.getElementById("loginBtn").addEventListener("click", async () => {
   errorMsg.textContent = "";
 });
 
+/* ========== Logout ========== */
 document.getElementById("logoutBtn").addEventListener("click", () => {
   currentStudentId = null;
   rewardPoints = 0;
@@ -181,17 +176,16 @@ document.getElementById("connectBtn").addEventListener("click", async () => {
 /* ========== AI Init ========== */
 async function init() {
   if (model) return;
-  const modelURL = URL + "model.json";
-  const metadataURL = URL + "metadata.json";
-  model = await tmImage.load(modelURL, metadataURL);
-  webcam = new tmImage.Webcam(320, 320, true);
+  model = await tmImage.load(URL + "model.json", URL + "metadata.json");
+  const flip = true;
+  webcam = new tmImage.Webcam(320, 320, flip);
   await webcam.setup();
   await webcam.play();
   document.getElementById("webcam-container").innerHTML = "";
   document.getElementById("webcam-container").appendChild(webcam.canvas);
 }
 
-/* ========== Detection ========== */
+/* ========== Detection Loop ========== */
 async function loop() {
   webcam.update();
   await predict();
@@ -200,7 +194,9 @@ async function loop() {
 
 async function predict() {
   const prediction = await model.predict(webcam.canvas);
-  let highest = prediction.reduce((a,b)=> a.probability > b.probability ? a : b);
+  let highest = prediction[0];
+  for (let p of prediction) if (p.probability > highest.probability) highest = p;
+
   const className = highest.className.trim().toLowerCase();
   const confidence = highest.probability;
   document.getElementById("label").innerText = `Detected: ${className} (${(confidence * 100).toFixed(1)}%)`;
@@ -219,16 +215,38 @@ async function handleStableDetection(label) {
   if (label === lastConfirmedLabel) return;
   lastConfirmedLabel = label;
 
-  let msg = "", pointsToAdd = 0;
   const ds = document.getElementById("detectStatus");
+  let msg = "", pointsToAdd = 0, color = "gray", messageText = "";
 
-  if (label === "recyclable") {
-    msg = "RECYCLABLE\n"; ds.textContent = "✅ Recyclable detected!"; ds.style.color = "green"; pointsToAdd = 5;
-  } else if (["non-recyclable", "non recyclable", "nonrecyclable"].includes(label)) {
-    msg = "NONRECYCLABLE\n"; ds.textContent = "🚫 Non-recyclable detected!"; ds.style.color = "red"; pointsToAdd = 1;
-  } else {
-    ds.textContent = "⚠️ Unknown label: " + label; ds.style.color = "#666"; return;
+  switch (label) {
+    case "non-recyclable":
+      msg = "NONRECYCLABLE\n";
+      messageText = "🚫 Non-Recyclable detected!";
+      color = "red"; pointsToAdd = 1;
+      break;
+    case "plastic":
+      msg = "PLASTIC\n";
+      messageText = "🧴 Plastic detected!";
+      color = "blue"; pointsToAdd = 3;
+      break;
+    case "pet bottle":
+      msg = "PETBOTTLE\n";
+      messageText = "🥤 PET Bottle detected!";
+      color = "green"; pointsToAdd = 5;
+      break;
+    case "metal":
+      msg = "METAL\n";
+      messageText = "⚙️ Metal detected!";
+      color = "orange"; pointsToAdd = 4;
+      break;
+    default:
+      ds.textContent = "⚠️ Unknown label: " + label;
+      ds.style.color = "#666";
+      return;
   }
+
+  ds.textContent = messageText;
+  ds.style.color = color;
 
   rewardPoints += pointsToAdd;
   document.getElementById("points").innerText = rewardPoints;
@@ -248,7 +266,7 @@ async function handleStableDetection(label) {
   }
 }
 
-/* ========== Start / Stop Buttons ========== */
+/* ========== Start / Stop ========== */
 document.getElementById("startBtn").addEventListener("click", async () => {
   if (!model) await init();
   detecting = true;
@@ -288,28 +306,32 @@ async function loadLeaderboard() {
   });
 }
 
-/* ========== Statistics (Fixed Classification) ========== */
+/* ========== Statistics ========== */
 async function loadStats() {
   const recordsSnap = await db.collectionGroup("records").get();
-  let recy = 0, non = 0;
+  let non = 0, plastic = 0, pet = 0, metal = 0;
   recordsSnap.forEach(r => {
-    const d = r.data();
-    if (!d || !d.label) return;
+    const d = r.data(); if (!d || !d.label) return;
     const lb = String(d.label).toLowerCase();
-    if (lb === "recyclable") recy++;
-    else if (["non-recyclable", "non recyclable", "nonrecyclable"].includes(lb)) non++;
+    if (lb === "non-recyclable") non++;
+    else if (lb === "plastic") plastic++;
+    else if (lb === "pet bottle") pet++;
+    else if (lb === "metal") metal++;
   });
 
   const ctx = document.getElementById("chart").getContext('2d');
-  if (pieChart) { pieChart.destroy(); } // 防止疊加
-  pieChart = new Chart(ctx, {
-    type: 'pie',
-    data: {
-      labels: ["Recyclable", "Non-recyclable"],
-      datasets: [{ data: [recy, non], backgroundColor: ["#16a34a", "#ef4444"] }]
-    },
-    options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
-  });
+  const data = {
+    labels: ["Non-recyclable", "Plastic", "PET Bottle", "Metal"],
+    datasets: [{ data: [non, plastic, pet, metal], backgroundColor: ["#ef4444", "#3b82f6", "#16a34a", "#f97316"] }]
+  };
+  if (pieChart) { pieChart.data = data; pieChart.update(); }
+  else {
+    pieChart = new Chart(ctx, {
+      type: 'pie',
+      data: data,
+      options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+  }
 }
 
 /* ========== Recent Activity ========== */
