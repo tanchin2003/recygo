@@ -3,40 +3,45 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>♻️ RecyGo Admin Dashboard</title>
+<title>♻️ RecyGo Admin Login</title>
 <link rel="icon" type="image/png" href="logo.jpg">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body class="bg-green-50 min-h-screen p-6">
+<body class="bg-green-50 min-h-screen flex items-center justify-center">
 
-<h1 class="text-3xl font-bold text-green-800 mb-6 text-center">♻️ RecyGo Admin Dashboard</h1>
-
-<!-- ✅ 學生積分表 -->
-<div class="bg-white p-6 rounded-xl shadow-lg max-w-5xl mx-auto">
-  <div class="flex justify-between items-center mb-4">
-    <h2 class="text-xl font-semibold">📋 Student Points</h2>
-    <button id="refreshBtn" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">Refresh</button>
-  </div>
-  <table class="w-full text-left border-collapse" id="studentTable">
-    <thead class="bg-green-100">
-      <tr><th class="p-2">Student ID</th><th class="p-2">Points</th><th class="p-2 text-center">Actions</th></tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+<div id="loginBox" class="bg-white p-8 rounded-2xl shadow-lg w-96 text-center">
+  <h1 class="text-2xl font-bold text-green-700 mb-4">Admin Login</h1>
+  <input id="adminPass" type="password" placeholder="Enter Admin Password"
+    class="border border-gray-300 w-full p-2 rounded mb-3 text-center">
+  <button id="loginAdminBtn" class="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700">Login</button>
+  <p id="errorMsg" class="text-red-500 text-sm mt-3 hidden">Incorrect password.</p>
 </div>
 
-<!-- ✅ 垃圾分類統計 -->
-<div class="bg-white p-6 rounded-xl shadow-lg max-w-5xl mx-auto mt-6">
-  <h2 class="text-xl font-semibold mb-2">📊 Overall Classification Statistics</h2>
-  <canvas id="chart" class="max-w-md"></canvas>
-  <div id="statText" class="text-center text-gray-600 mt-4 text-sm"></div>
+<div id="dashboard" class="hidden p-6 w-full">
+  <h1 class="text-3xl font-bold text-green-800 mb-6 text-center">♻️ RecyGo Admin Dashboard</h1>
+  <div class="bg-white p-6 rounded-xl shadow-lg max-w-5xl mx-auto">
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-xl font-semibold">📋 Student Points</h2>
+      <button id="refreshBtn" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">Refresh</button>
+    </div>
+    <table class="w-full text-left border-collapse" id="studentTable">
+      <thead class="bg-green-100">
+        <tr><th class="p-2">Student ID</th><th class="p-2">Points</th><th class="p-2">Actions</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="bg-white p-6 rounded-xl shadow-lg max-w-5xl mx-auto mt-6">
+    <h2 class="text-xl font-semibold mb-2">📊 Overall Statistics</h2>
+    <canvas id="chart" class="max-w-md"></canvas>
+  </div>
 </div>
 
 <script>
-/* ========== Firebase ========== */
 const firebaseConfig = {
   apiKey: "AIzaSyAjWXFfQT_5dBtDZvYFwyj4kGfeWQdcCBU",
   authDomain: "recygo-cd169.firebaseapp.com",
@@ -49,9 +54,20 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-let chartInstance = null;
+// --- Admin Password ---
+const ADMIN_PASSWORD = "admin123";
 
-/* ========== 讀取學生列表 ========== */
+document.getElementById("loginAdminBtn").addEventListener("click", () => {
+  const input = document.getElementById("adminPass").value;
+  if (input === ADMIN_PASSWORD) {
+    document.getElementById("loginBox").classList.add("hidden");
+    document.getElementById("dashboard").classList.remove("hidden");
+    loadStudents();
+  } else {
+    document.getElementById("errorMsg").classList.remove("hidden");
+  }
+});
+
 async function loadStudents() {
   const tbody = document.querySelector("#studentTable tbody");
   tbody.innerHTML = "<tr><td colspan='3' class='p-3 text-center text-gray-500'>Loading...</td></tr>";
@@ -64,32 +80,26 @@ async function loadStudents() {
       <tr class="border-b">
         <td class="p-2">${doc.id}</td>
         <td class="p-2">${data.points || 0}</td>
-        <td class="p-2 text-center">
-          <button onclick="redeemPoints('${doc.id}', ${data.points || 0})" 
-                  class="bg-yellow-500 text-white px-3 py-1 rounded mr-2 hover:bg-yellow-600">Redeem</button>
-          <button onclick="resetPoints('${doc.id}')" 
-                  class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600">Reset</button>
+        <td class="p-2">
+          <button onclick="redeemPoints('${doc.id}')" class="bg-yellow-500 text-white px-3 py-1 rounded">Redeem (-10)</button>
+          <button onclick="resetPoints('${doc.id}')" class="bg-red-500 text-white px-3 py-1 rounded ml-2">Reset</button>
         </td>
       </tr>`;
   });
   loadStats();
 }
 
-/* ========== 扣分功能（Redeem） ========== */
-async function redeemPoints(id, currentPoints) {
-  const val = prompt(`Enter points to redeem for ${id} (current: ${currentPoints})`);
-  const pts = parseInt(val);
-  if (!pts || pts <= 0) return alert("Invalid points value.");
-  if (pts > currentPoints) return alert("Cannot redeem more than current points.");
-
-  await db.collection("students").doc(id).update({
-    points: currentPoints - pts
-  });
-  alert(`Redeemed ${pts} points from ${id}`);
-  loadStudents();
+async function redeemPoints(id) {
+  if (confirm("Redeem 10 points for " + id + "?")) {
+    const ref = db.collection("students").doc(id);
+    const docSnap = await ref.get();
+    const current = docSnap.data()?.points || 0;
+    await ref.update({ points: Math.max(0, current - 10) });
+    alert("Redeemed 10 points for " + id);
+    loadStudents();
+  }
 }
 
-/* ========== 重置分數 ========== */
 async function resetPoints(id) {
   if (confirm("Reset points for " + id + "?")) {
     await db.collection("students").doc(id).update({ points: 0 });
@@ -98,47 +108,34 @@ async function resetPoints(id) {
   }
 }
 
-/* ========== 垃圾分類統計（全系統） ========== */
+// --- Statistics ---
 async function loadStats() {
   const recSnap = await db.collectionGroup("records").get();
-  let pet = 0, plastic = 0, metal = 0, non = 0;
+  let non = 0, plastic = 0, pet = 0, metal = 0;
   recSnap.forEach(r => {
-    const d = r.data(); if (!d || !d.label) return;
-    const lb = String(d.label).toLowerCase();
-    if (lb === "pet bottle") pet++;
+    const lb = String(r.data()?.label || "").toLowerCase();
+    if (lb === "non-recyclable") non++;
     else if (lb === "plastic") plastic++;
+    else if (lb === "pet bottle") pet++;
     else if (lb === "metal") metal++;
-    else if (["non-recyclable","non recyclable","nonrecyclable"].includes(lb)) non++;
   });
 
   const ctx = document.getElementById("chart").getContext("2d");
-  const data = {
-    labels: ["PET Bottle", "Plastic", "Metal", "Non-Recyclable"],
-    datasets: [{
-      label: "Items Detected",
-      data: [pet, plastic, metal, non],
-      backgroundColor: ["#16a34a", "#3b82f6", "#f97316", "#ef4444"]
-    }]
-  };
-
-  if (chartInstance) chartInstance.destroy();
-  chartInstance = new Chart(ctx, {
+  new Chart(ctx, {
     type: "bar",
-    data: data,
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: { y: { beginAtZero: true } }
-    }
+    data: {
+      labels: ["Non-recyclable", "Plastic", "PET Bottle", "Metal"],
+      datasets: [{
+        label: "Items Detected",
+        data: [non, plastic, pet, metal],
+        backgroundColor: ["#ef4444", "#3b82f6", "#16a34a", "#f97316"]
+      }]
+    },
+    options: { responsive: true, plugins: { legend: { display: false } } }
   });
-
-  document.getElementById("statText").innerText =
-    `Detected so far: ${pet} PET bottles, ${plastic} plastics, ${metal} metals, and ${non} non-recyclables.`;
 }
 
-/* ========== 初始化 ========== */
-document.getElementById("refreshBtn").addEventListener("click", loadStudents);
-loadStudents();
+document.getElementById("refreshBtn")?.addEventListener("click", loadStudents);
 </script>
 </body>
 </html>
