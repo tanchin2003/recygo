@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>♻️ RecyGo – My Score</title>
+<link rel="icon" type="image/png" href="logo.jpg">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
+<style>
+body { background: linear-gradient(to bottom right, #ecfdf5, #d1fae5); }
+</style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center text-gray-800">
+
+<!-- Login -->
+<section id="login-section" class="bg-white p-8 rounded-2xl shadow-lg w-11/12 max-w-md text-center">
+  <img src="logo.jpg" class="mx-auto w-24 h-24 rounded-lg mb-4" alt="logo">
+  <h1 class="text-3xl font-extrabold text-green-800 mb-4">♻️ RecyGo</h1>
+  <p class="text-green-700 mb-4">Check your recycling score & ranking</p>
+  <input id="studentId" type="text" maxlength="8" placeholder="Enter Student ID"
+         class="border-2 border-green-300 rounded-lg px-4 py-2 w-64 text-center focus:border-green-500 mb-3" />
+  <button id="loginBtn" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition w-64">Login / Register</button>
+  <p id="error" class="text-red-500 text-sm mt-2"></p>
+</section>
+
+<!-- Main -->
+<section id="main-section" class="hidden w-full max-w-md mx-auto text-center p-4">
+  <div class="bg-white rounded-2xl shadow p-6 mb-6">
+    <p class="text-sm text-gray-500">👤 Logged in as</p>
+    <p id="userId" class="text-green-700 font-semibold text-lg mb-1">—</p>
+    <p class="text-sm text-gray-500">🎁 Points</p>
+    <p id="points" class="text-3xl font-bold text-green-600 mb-3">0</p>
+    <button id="logoutBtn" class="bg-gray-200 px-4 py-1 rounded-lg hover:bg-gray-300 text-sm">Logout</button>
+  </div>
+
+  <div class="bg-white rounded-2xl shadow p-6">
+    <h2 class="text-xl font-semibold text-green-800 mb-3">🏆 Leaderboard</h2>
+    <ul id="leaderboardList" class="space-y-2"></ul>
+  </div>
+</section>
+
+<script>
+/* Firebase */
+const firebaseConfig = {
+  apiKey: "AIzaSyAjWXFfQT_5dBtDZvYFwyj4kGfeWQdcCBU",
+  authDomain: "recygo-cd169.firebaseapp.com",
+  projectId: "recygo-cd169",
+  storageBucket: "recygo-cd169.firebasestorage.app",
+  messagingSenderId: "965670715995",
+  appId: "1:965670715995:web:b4da5995cb0bd5da8c357e",
+  measurementId: "G-9MD9PD9PJL"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+/* Login */
+document.getElementById("loginBtn").addEventListener("click", async () => {
+  const id = document.getElementById("studentId").value.trim();
+  const error = document.getElementById("error");
+  if (!/^\d{8}$/.test(id)) { error.textContent = "⚠️ Invalid ID"; return; }
+  error.textContent = "⏳ Logging in...";
+  const ref = db.collection("students").doc(id);
+  const snap = await ref.get();
+  let pts = 0;
+  if (snap.exists) pts = snap.data().points || 0;
+  else await ref.set({ points: 0 });
+  document.getElementById("userId").innerText = id;
+  document.getElementById("points").innerText = pts;
+  document.getElementById("login-section").classList.add("hidden");
+  document.getElementById("main-section").classList.remove("hidden");
+  loadLeaderboard(id);
+});
+
+document.getElementById("logoutBtn").addEventListener("click", () => {
+  location.reload();
+});
+
+/* Leaderboard */
+async function loadLeaderboard(currentId) {
+  const list = document.getElementById("leaderboardList");
+  list.innerHTML = "<p class='text-gray-500 text-sm'>Loading...</p>";
+  const snap = await db.collection("students").orderBy("points", "desc").limit(10).get();
+  list.innerHTML = "";
+  let rank = 1;
+  snap.forEach(doc => {
+    const data = doc.data();
+    const me = doc.id === currentId;
+    list.innerHTML += `
+      <li class="flex items-center justify-between p-2 rounded-md ${me ? 'bg-green-50 border border-green-100' : 'bg-white'}">
+        <div class="text-sm"><span class="font-semibold">#${rank}</span> ${doc.id}</div>
+        <div class="text-sm font-medium text-green-700">${data.points || 0} pts</div>
+      </li>`;
+    rank++;
+  });
+}
+</script>
+</body>
+</html>
