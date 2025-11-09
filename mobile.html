@@ -3,57 +3,64 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>♻️ RecyGo – My Score</title>
+<title>📱 RecyGo Mobile</title>
 <link rel="icon" type="image/png" href="logo.jpg">
 
 <!-- Tailwind -->
 <script src="https://cdn.tailwindcss.com"></script>
+
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 
-<style>
-body {
-  background: linear-gradient(to bottom right, #ecfdf5, #d1fae5);
-  font-family: 'Inter', sans-serif;
-}
-</style>
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 </head>
 
-<body class="min-h-screen flex flex-col items-center justify-center text-gray-800">
+<body class="bg-gradient-to-br from-green-50 to-green-100 min-h-screen flex flex-col items-center justify-center text-gray-800">
 
-<!-- Login -->
-<section id="login-section" class="bg-white p-8 rounded-2xl shadow-lg w-11/12 max-w-md text-center">
-  <img src="logo.jpg" class="mx-auto w-24 h-24 rounded-lg mb-4" alt="logo">
-  <h1 class="text-3xl font-extrabold text-green-800 mb-4">♻️ RecyGo</h1>
-  <p class="text-green-700 mb-4">Check your recycling points & ranking</p>
-  <input id="studentId" type="text" maxlength="8" placeholder="Enter Student ID"
+<!-- ========== Mobile Login ========== -->
+<section id="login-section" class="bg-white p-8 rounded-2xl shadow-xl w-11/12 max-w-sm text-center">
+  <img src="logo.jpg" alt="RecyGo Logo" class="mx-auto w-20 h-20 rounded-xl mb-3">
+  <h1 class="text-2xl font-extrabold text-green-800 mb-2">♻️ RecyGo</h1>
+  <p class="text-green-700 mb-5">Check your recycling score</p>
+
+  <h3 class="text-base font-semibold mb-3">👩‍🎓 Enter Your 8-digit Student ID</h3>
+  <input id="studentId" type="text" maxlength="8" placeholder="e.g. 20250123"
          class="border-2 border-green-300 rounded-lg px-4 py-2 w-64 text-center focus:border-green-500 mb-3" />
   <button id="loginBtn"
-          class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition w-64">
-          Login / Register</button>
-  <p id="error" class="text-red-500 text-sm mt-2"></p>
+          class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition w-64">Login</button>
+  <p id="error" class="text-sm text-red-600 mt-2"></p>
 </section>
 
-<!-- Main -->
-<section id="main-section" class="hidden w-full max-w-md mx-auto text-center p-4">
-  <div class="bg-white rounded-2xl shadow p-6 mb-6">
-    <p class="text-sm text-gray-500">👤 Logged in as</p>
-    <p id="userId" class="text-green-700 font-semibold text-lg mb-1">—</p>
-    <p class="text-sm text-gray-500">🎁 Points</p>
-    <p id="points" class="text-3xl font-bold text-green-600 mb-3">0</p>
-    <button id="logoutBtn"
-            class="bg-gray-200 px-4 py-1 rounded-lg hover:bg-gray-300 text-sm">Logout</button>
-  </div>
+<!-- ========== Main Section ========== -->
+<section id="main-section" class="hidden w-full max-w-md mx-auto p-4">
+  <div class="bg-white rounded-2xl shadow-lg p-6">
+    <div class="flex justify-between items-center mb-4">
+      <div>
+        <p class="text-sm text-gray-500">👤 Student ID</p>
+        <p id="userId" class="font-medium text-green-700 text-lg">—</p>
+      </div>
+      <div class="text-right">
+        <p class="text-sm text-gray-500">🎁 Points</p>
+        <p id="points" class="text-2xl font-bold text-green-600">0</p>
+      </div>
+    </div>
 
-  <div class="bg-white rounded-2xl shadow p-6">
-    <h2 class="text-xl font-semibold text-green-800 mb-3">🏆 Leaderboard</h2>
-    <ul id="leaderboardList" class="space-y-2 text-sm"></ul>
+    <h2 class="text-lg font-semibold text-green-800 mt-4 mb-2">🏆 Leaderboard</h2>
+    <ul id="leaderboardList" class="space-y-1 mb-4"></ul>
+
+    <h2 class="text-lg font-semibold text-green-800 mb-2">📊 Recycling Statistics</h2>
+    <canvas id="chart" class="w-full h-48"></canvas>
+
+    <button id="logoutBtn"
+            class="mt-6 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 w-full">Logout</button>
   </div>
 </section>
 
 <script>
-/* ---------------- Firebase ---------------- */
+/* Firebase Setup */
 const firebaseConfig = {
   apiKey: "AIzaSyAjWXFfQT_5dBtDZvYFwyj4kGfeWQdcCBU",
   authDomain: "recygo-cd169.firebaseapp.com",
@@ -66,59 +73,78 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-/* ---------------- Login ---------------- */
+let currentStudentId = null;
+let pieChart = null;
+
+/* Login */
 document.getElementById("loginBtn").addEventListener("click", async () => {
   const id = document.getElementById("studentId").value.trim();
   const error = document.getElementById("error");
-  if (!/^\d{8}$/.test(id)) {
-    error.textContent = "⚠️ Please enter a valid 8-digit Student ID";
-    return;
-  }
+  if (!/^\d{8}$/.test(id)) { error.textContent = "⚠️ Invalid ID"; return; }
 
   error.textContent = "⏳ Logging in...";
   const ref = db.collection("students").doc(id);
   const snap = await ref.get();
-  let pts = 0;
 
-  if (snap.exists) pts = snap.data().points || 0;
+  let points = 0;
+  if (snap.exists) points = snap.data().points || 0;
   else await ref.set({ points: 0 });
 
-  document.getElementById("userId").innerText = id;
-  document.getElementById("points").innerText = pts;
+  currentStudentId = id;
+  document.getElementById("userId").textContent = id;
+  document.getElementById("points").textContent = points;
+
   document.getElementById("login-section").classList.add("hidden");
   document.getElementById("main-section").classList.remove("hidden");
-
-  loadLeaderboard(id);
   error.textContent = "";
+
+  await loadLeaderboard();
+  await loadStats();
 });
 
-/* ---------------- Logout ---------------- */
-document.getElementById("logoutBtn").addEventListener("click", () => {
-  location.reload();
-});
+/* Logout */
+document.getElementById("logoutBtn").addEventListener("click", () => location.reload());
 
-/* ---------------- Leaderboard ---------------- */
-async function loadLeaderboard(currentId) {
+/* Leaderboard */
+async function loadLeaderboard() {
   const list = document.getElementById("leaderboardList");
-  list.innerHTML = "<p class='text-gray-500 text-sm'>Loading...</p>";
-
-  const snap = await db.collection("students").orderBy("points", "desc").limit(10).get();
   list.innerHTML = "";
+  const snap = await db.collection("students").orderBy("points", "desc").limit(5).get();
   let rank = 1;
-
   snap.forEach(doc => {
     const data = doc.data();
-    const me = doc.id === currentId;
+    const isMe = (doc.id === currentStudentId);
     list.innerHTML += `
-      <li class="flex items-center justify-between p-2 rounded-md ${me ? 'bg-green-50 border border-green-100' : 'bg-white'}">
-        <div class="text-sm">
-          <span class="font-semibold">#${rank}</span> ${doc.id}
-        </div>
-        <div class="text-sm font-medium text-green-700">${data.points || 0} pts</div>
+      <li class="flex justify-between p-2 rounded-md ${isMe ? 'bg-green-50 border border-green-200' : 'bg-white'}">
+        <span class="text-sm">#${rank} ${doc.id}</span>
+        <span class="text-sm font-medium text-green-700">${data.points || 0} pts</span>
       </li>`;
     rank++;
   });
 }
+
+/* Chart */
+async function loadStats() {
+  const records = await db.collectionGroup("records").get();
+  let non=0, plastic=0, pet=0, metal=0;
+  records.forEach(r => {
+    const lb = String(r.data().label).toLowerCase();
+    if (lb==="non-recyclable") non++;
+    else if (lb==="plastic") plastic++;
+    else if (lb==="pet bottle") pet++;
+    else if (lb==="metal") metal++;
+  });
+
+  const ctx=document.getElementById("chart").getContext("2d");
+  const data={
+    labels:["Non-recyclable","Plastic","PET Bottle","Metal"],
+    datasets:[{data:[non,plastic,pet,metal],
+      backgroundColor:["#ef4444","#3b82f6","#16a34a","#6b7280"]}]
+  };
+  if (pieChart) { pieChart.data=data; pieChart.update(); }
+  else pieChart=new Chart(ctx,{type:"pie",data:data,options:{plugins:{legend:{position:"bottom"}}}});
+}
 </script>
+
 </body>
 </html>
