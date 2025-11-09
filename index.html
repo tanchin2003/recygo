@@ -128,10 +128,10 @@ document.getElementById("connectBtn").addEventListener("click", async () => {
   } catch (err) { alert("❌ Connection failed: " + err); }
 });
 
-/* Teachable Machine */
+/* Teachable Machine - Auto camera */
 async function init() {
   model = await tmImage.load(URL + "model.json", URL + "metadata.json");
-  webcam = new tmImage.Webcam(320, 320, true);
+  webcam = new tmImage.Webcam(320, 320, true); // 自動使用預設攝像頭
   await webcam.setup();
   await webcam.play();
   document.getElementById("webcam-container").innerHTML = "";
@@ -210,5 +210,7 @@ async function loadChart(){
 </script>
 </body>
 </html>
+
+
 
 
