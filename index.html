@@ -2,215 +2,329 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>♻️ RecyGo - Smart Recycling</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>♻️ RecyGo</title>
 <link rel="icon" type="image/png" href="logo.jpg">
 
+<!-- Tailwind -->
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- TensorFlow / Teachable Machine -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.9.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <style>
 #webcam-container canvas {
-  width: 320px !important;
-  border-radius: 10px;
-  margin-top: 10px;
+  width: 100% !important;
+  height: auto !important;
+  max-width: 320px;
+  border-radius: 0.5rem;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
 }
 </style>
 </head>
-<body class="bg-green-50 min-h-screen flex flex-col items-center">
+<body class="bg-gradient-to-br from-green-50 to-green-100 min-h-screen flex flex-col items-center justify-center text-gray-800">
 
-<!-- Header -->
-<header class="p-4 w-full bg-white shadow-md flex items-center justify-between">
-  <div class="flex items-center gap-2">
-    <img src="logo.jpg" alt="RecyGo Logo" class="w-10 h-10 rounded-md" />
-    <h1 class="text-2xl font-bold text-green-700">♻️ RecyGo</h1>
-  </div>
-  <nav class="text-sm text-green-700">
-    <a href="mobile.html" class="hover:underline mr-4">Mobile</a>
-    <a href="admin.html" class="hover:underline">Admin</a>
-  </nav>
-</header>
+  <!-- Login Section -->
+  <section id="login-section" class="bg-white p-8 rounded-2xl shadow-xl w-11/12 max-w-md text-center">
+    <img src="logo.jpg" alt="RecyGo Logo" class="mx-auto w-24 h-24 rounded-xl mb-3">
+    <h1 class="text-3xl font-extrabold text-green-800 mb-2">♻️ RecyGo</h1>
+    <p class="text-green-700 mb-6">Smart recycling — AI + Arduino + Cloud</p>
 
-<!-- Login -->
-<section id="login-section" class="mt-20 text-center">
-  <h3 class="text-lg font-medium text-green-700 mb-2">👩‍🎓 Enter Your 8-digit Student ID</h3>
-  <input id="studentId" type="text" maxlength="8" placeholder="e.g. 20250123"
-         class="border border-green-400 rounded-lg px-3 py-2 w-64 text-center mb-2">
-  <button id="loginBtn" class="bg-green-600 text-white px-5 py-2 rounded-lg">Login / Register</button>
-  <p id="error" class="text-red-500 text-sm mt-2"></p>
-</section>
+    <h3 class="text-lg font-semibold mb-3">👩‍🎓 Enter Your 8-digit Student ID</h3>
+    <input id="studentId" type="text" placeholder="e.g. 20250123" maxlength="8"
+           class="border-2 border-green-300 rounded-lg px-4 py-2 w-72 text-center focus:outline-none focus:border-green-500 transition mb-3" />
+    <button id="loginBtn"
+            class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition w-72">Login / Register</button>
+    <p id="error" class="text-sm text-red-600 mt-2"></p>
+    <p class="text-xs text-gray-500 mt-3">Your points and records are stored in Firebase Cloud.</p>
+  </section>
 
-<!-- Main -->
-<section id="main-section" class="hidden mt-6 w-full max-w-5xl mx-auto">
-  <div class="flex justify-between items-center px-6">
-    <div>
-      <p class="text-sm text-gray-600">👤 Logged in as: <span id="userId" class="font-semibold text-green-700"></span></p>
-      <p class="text-lg font-semibold">🎁 Points: <span id="points" class="text-green-600 text-xl">0</span></p>
-    </div>
-    <button id="logoutBtn" class="bg-gray-200 px-4 py-1 rounded-lg hover:bg-gray-300">Logout</button>
-  </div>
+  <!-- Main Section -->
+  <section id="main-section" class="hidden w-full max-w-5xl mx-auto p-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
-    <!-- AI Detection -->
-    <div class="bg-white rounded-xl shadow p-4 text-center">
-      <h2 class="text-lg font-semibold text-green-800 mb-2">🧠 AI Detection</h2>
-      <div id="webcam-container"></div>
-      <p id="label" class="mt-2 text-gray-600">Detected: —</p>
-      <p id="detectStatus" class="mt-1 font-medium text-gray-500">💤 Waiting for detection...</p>
-      <div class="mt-4 space-x-3">
-        <button id="connectBtn" class="bg-green-600 text-white px-4 py-2 rounded-lg">🔌 Connect Arduino</button>
-        <button id="startBtn" class="bg-green-600 text-white px-4 py-2 rounded-lg">▶️ Start</button>
-        <button id="stopBtn" class="bg-red-500 text-white px-4 py-2 rounded-lg">⏹ Stop</button>
+      <!-- Left: Detection Panel -->
+      <div class="bg-white p-6 rounded-xl shadow">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <p class="text-sm text-gray-500">👤 Logged in as</p>
+            <p id="userId" class="font-medium text-lg text-green-700">—</p>
+          </div>
+          <div class="text-right">
+            <p class="text-sm text-gray-500">🎁 Points</p>
+            <p id="points" class="text-2xl font-bold text-green-600">0</p>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap gap-3 mb-4">
+          <button id="connectBtn" class="px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200">🔌 Connect Arduino</button>
+          <button id="startBtn" class="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">▶️ Start Detection</button>
+          <button id="stopBtn" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">⏹ Stop Detection</button>
+          <button id="logoutBtn" class="px-3 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Logout</button>
+        </div>
+
+        <p id="status" class="text-sm text-gray-600 mb-2">Status: Not connected</p>
+        <div id="label" class="mb-2 text-base font-medium">Detected: —</div>
+        <div id="detectStatus" class="mb-4 text-sm text-gray-500">💤 Waiting for detection...</div>
+
+        <!-- ✅ Camera container centered -->
+        <div id="webcam-container" class="flex justify-center mx-auto"></div>
       </div>
-      <p id="status" class="mt-3 text-sm text-gray-600">Status: Not connected</p>
-    </div>
 
-    <!-- Leaderboard & Chart -->
-    <div class="bg-white rounded-xl shadow p-4">
-      <h2 class="text-lg font-semibold text-green-800 mb-3">🏆 Leaderboard</h2>
-      <ul id="leaderboardList" class="space-y-1 text-sm mb-4"></ul>
-      <h2 class="text-lg font-semibold text-green-800 mb-2">📊 Recycling Stats</h2>
-      <canvas id="chart" height="180"></canvas>
+      <!-- Right: Leaderboard + Chart -->
+      <div class="bg-white p-6 rounded-xl shadow space-y-6">
+        <div>
+          <h2 class="text-xl font-semibold text-green-800 mb-2">🏆 Top Recyclers</h2>
+          <ul id="leaderboardList" class="space-y-2"></ul>
+        </div>
+
+        <div>
+          <h2 class="text-xl font-semibold text-green-800 mb-2">📊 Recycling Statistics</h2>
+          <canvas id="chart" class="w-full max-w-md"></canvas>
+          <p id="chartNote" class="text-sm text-gray-500 mt-2">Data collected from all users' records.</p>
+        </div>
+
+        <div>
+          <h3 class="text-lg font-medium text-green-700 mb-2">📝 Recent Activity</h3>
+          <ul id="recentList" class="text-sm space-y-1 max-h-48 overflow-auto"></ul>
+        </div>
+      </div>
     </div>
-  </div>
-</section>
+  </section>
 
 <script>
-/* Firebase */
+/* 📱 Auto redirect if mobile device */
+if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+  window.location.href = "mobile.html";
+}
+
+/* ========== Firebase Setup ========== */
 const firebaseConfig = {
   apiKey: "AIzaSyAjWXFfQT_5dBtDZvYFwyj4kGfeWQdcCBU",
   authDomain: "recygo-cd169.firebaseapp.com",
   projectId: "recygo-cd169",
   storageBucket: "recygo-cd169.firebasestorage.app",
   messagingSenderId: "965670715995",
-  appId: "1:965670715995:web:b4da5995cb0bd5da8c357e"
+  appId: "1:965670715995:web:b4da5995cb0bd5da8c357e",
+  measurementId: "G-9MD9PD9PJL"
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-let model, webcam, writer, port, detecting=false, rewardPoints=0;
-let currentStudentId=null, lastLabel="", stableCount=0, lastConfirmedLabel="";
+/* ========== Globals ========== */
 const URL = "https://teachablemachine.withgoogle.com/models/YSmHvTp9K/";
+let model, webcam, port, writer;
+let detecting = false;
+let rewardPoints = 0;
+let currentStudentId = null;
+let lastLabel = "", stableCount = 0, lastConfirmedLabel = "";
 const STABLE_THRESHOLD = 3;
+let pieChart = null;
 
-/* Login */
+/* ========== Login System ========== */
 document.getElementById("loginBtn").addEventListener("click", async () => {
   const id = document.getElementById("studentId").value.trim();
-  const error = document.getElementById("error");
-  if (!/^\d{8}$/.test(id)) { error.textContent = "⚠️ Invalid ID"; return; }
-  error.textContent = "⏳ Logging in...";
-  const ref = db.collection("students").doc(id);
-  const snap = await ref.get();
-  rewardPoints = snap.exists ? snap.data().points || 0 : 0;
-  if (!snap.exists) await ref.set({ points: 0 });
+  const errorMsg = document.getElementById("error");
+  if (!/^\d{8}$/.test(id)) {
+    errorMsg.textContent = "⚠️ Please enter a valid 8-digit Student ID";
+    return;
+  }
+  errorMsg.textContent = "⏳ Logging in...";
+  currentStudentId = id;
+
+  const docRef = db.collection("students").doc(id);
+  const docSnap = await docRef.get();
+  if (docSnap.exists) rewardPoints = docSnap.data().points || 0;
+  else { await docRef.set({ points: 0 }); rewardPoints = 0; }
+
   document.getElementById("points").innerText = rewardPoints;
   document.getElementById("userId").innerText = id;
   document.getElementById("login-section").classList.add("hidden");
   document.getElementById("main-section").classList.remove("hidden");
-  loadLeaderboard(); loadChart();
-  currentStudentId = id;
+
+  await loadLeaderboard();
+  await loadStats();
+  await loadRecentRecords();
+  errorMsg.textContent = "";
 });
 
-/* Logout */
-document.getElementById("logoutBtn").onclick = () => location.reload();
+document.getElementById("logoutBtn").addEventListener("click", () => {
+  currentStudentId = null;
+  rewardPoints = 0;
+  document.getElementById("points").innerText = "0";
+  document.getElementById("login-section").classList.remove("hidden");
+  document.getElementById("main-section").classList.add("hidden");
+  document.getElementById("studentId").value = "";
+});
 
-/* Arduino Connect */
+/* ========== Arduino Connect ========== */
 document.getElementById("connectBtn").addEventListener("click", async () => {
   try {
     port = await navigator.serial.requestPort();
     await port.open({ baudRate: 9600 });
     writer = port.writable.getWriter();
     document.getElementById("status").innerText = "✅ Arduino Connected";
-  } catch (err) { alert("❌ Connection failed: " + err); }
+  } catch (err) {
+    alert("❌ Connection failed: " + err);
+    document.getElementById("status").innerText = "❌ Arduino connection failed";
+  }
 });
 
-/* Teachable Machine - Auto camera */
+/* ========== AI Init ========== */
 async function init() {
-  model = await tmImage.load(URL + "model.json", URL + "metadata.json");
-  webcam = new tmImage.Webcam(320, 320, true); // 自動使用預設攝像頭
+  if (model) return;
+  const modelURL = URL + "model.json";
+  const metadataURL = URL + "metadata.json";
+  model = await tmImage.load(modelURL, metadataURL);
+  webcam = new tmImage.Webcam(320, 320, true);
   await webcam.setup();
   await webcam.play();
   document.getElementById("webcam-container").innerHTML = "";
   document.getElementById("webcam-container").appendChild(webcam.canvas);
 }
 
-/* Detection */
-document.getElementById("startBtn").addEventListener("click", async () => {
-  if (!model) await init();
-  detecting = true;
-  detectLoop();
-});
-document.getElementById("stopBtn").addEventListener("click", () => detecting=false);
-
-async function detectLoop() {
+/* ========== Detection ========== */
+async function loop() {
   webcam.update();
   await predict();
-  if (detecting) requestAnimationFrame(detectLoop);
+  if (detecting) setTimeout(loop, 250);
 }
 
 async function predict() {
-  const preds = await model.predict(webcam.canvas);
-  let top = preds.reduce((a,b)=> a.probability > b.probability ? a : b);
-  const label = top.className.toLowerCase();
-  const conf = top.probability;
-  document.getElementById("label").innerText = `Detected: ${label} (${(conf*100).toFixed(1)}%)`;
+  const prediction = await model.predict(webcam.canvas);
+  let highest = prediction.reduce((a,b)=> a.probability > b.probability ? a : b);
+  const className = highest.className.trim().toLowerCase();
+  const confidence = highest.probability;
+  document.getElementById("label").innerText = `Detected: ${className} (${(confidence * 100).toFixed(1)}%)`;
 
-  if (label === lastLabel && conf>0.6) stableCount++; else { stableCount=0; lastLabel=label; }
-  if (stableCount>=STABLE_THRESHOLD) { stableCount=0; handleDetection(label); }
+  if (className === lastLabel && confidence > 0.6) stableCount++;
+  else { stableCount = 0; lastLabel = className; }
+
+  if (stableCount >= STABLE_THRESHOLD) {
+    stableCount = 0;
+    handleStableDetection(className);
+  }
 }
 
-async function handleDetection(label) {
+/* ========== Stable Detection Handler ========== */
+async function handleStableDetection(label) {
   if (label === lastConfirmedLabel) return;
   lastConfirmedLabel = label;
-  const ds = document.getElementById("detectStatus");
-  let add=0;
-  if (label==="recyclable"){ ds.textContent="✅ Recyclable detected!"; ds.style.color="green"; add=5; }
-  else if (["non-recyclable","nonrecyclable"].includes(label)){ ds.textContent="🚫 Non-recyclable detected!"; ds.style.color="red"; add=1; }
-  else return;
 
-  rewardPoints+=add;
-  document.getElementById("points").innerText=rewardPoints;
-  await db.collection("students").doc(currentStudentId).update({points:rewardPoints});
-  await db.collection("students").doc(currentStudentId).collection("records").add({
-    label, pointsAdded:add, timestamp:firebase.firestore.FieldValue.serverTimestamp()
-  });
-  loadLeaderboard(); loadChart();
-  if(writer) await writer.write(new TextEncoder().encode(label.toUpperCase()+"\n"));
+  let msg = "", pointsToAdd = 0;
+  const ds = document.getElementById("detectStatus");
+
+  if (label === "recyclable") {
+    msg = "RECYCLABLE\n"; ds.textContent = "✅ Recyclable detected!"; ds.style.color = "green"; pointsToAdd = 5;
+  } else if (["non-recyclable", "non recyclable", "nonrecyclable"].includes(label)) {
+    msg = "NONRECYCLABLE\n"; ds.textContent = "🚫 Non-recyclable detected!"; ds.style.color = "red"; pointsToAdd = 1;
+  } else {
+    ds.textContent = "⚠️ Unknown label: " + label; ds.style.color = "#666"; return;
+  }
+
+  rewardPoints += pointsToAdd;
+  document.getElementById("points").innerText = rewardPoints;
+  if (writer) try { await writer.write(new TextEncoder().encode(msg)); } catch(e){}
+
+  if (currentStudentId) {
+    const studentRef = db.collection("students").doc(currentStudentId);
+    await studentRef.update({ points: rewardPoints });
+    await studentRef.collection("records").add({
+      label: label,
+      pointsAdded: pointsToAdd,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await loadLeaderboard();
+    await loadStats();
+    await loadRecentRecords();
+  }
 }
 
-/* Leaderboard */
-async function loadLeaderboard(){
-  const list=document.getElementById("leaderboardList");
-  list.innerHTML="";
-  const snap=await db.collection("students").orderBy("points","desc").limit(10).get();
-  let rank=1;
-  snap.forEach(doc=>{
-    list.innerHTML+=`<li class="flex justify-between border-b text-sm py-1 ${doc.id===currentStudentId?'bg-green-50':''}">
-      <span>#${rank} ${doc.id}</span><span>${doc.data().points||0} pts</span></li>`;
+/* ========== Start / Stop Buttons ========== */
+document.getElementById("startBtn").addEventListener("click", async () => {
+  if (!model) await init();
+  detecting = true;
+  lastConfirmedLabel = "";
+  document.getElementById("detectStatus").textContent = "🟡 Detecting...";
+  document.getElementById("status").innerText = "🟡 Detection started...";
+  if (writer) await writer.write(new TextEncoder().encode("START\n"));
+  loop();
+});
+
+document.getElementById("stopBtn").addEventListener("click", async () => {
+  detecting = false;
+  document.getElementById("detectStatus").textContent = "💤 Detection stopped.";
+  document.getElementById("status").innerText = "🟠 Detection stopped";
+  if (writer) await writer.write(new TextEncoder().encode("STOP\n"));
+});
+
+/* ========== Leaderboard ========== */
+async function loadLeaderboard() {
+  const snapshot = await db.collection("students").orderBy("points", "desc").limit(5).get();
+  const list = document.getElementById("leaderboardList");
+  list.innerHTML = "";
+  if (snapshot.empty) {
+    list.innerHTML = `<li class="p-2 bg-gray-50 rounded-md">No data yet</li>`;
+    return;
+  }
+  let rank = 1;
+  snapshot.forEach(doc => {
+    const data = doc.data(); const score = data.points || 0;
+    const isMe = (doc.id === currentStudentId);
+    list.innerHTML += `
+      <li class="flex items-center justify-between p-2 rounded-md ${isMe ? 'bg-green-50 border border-green-100' : 'bg-white'}">
+        <div class="text-sm"><span class="font-semibold">#${rank}</span> &nbsp; ${doc.id}</div>
+        <div class="text-sm font-medium text-green-700">${score} pts</div>
+      </li>`;
     rank++;
   });
 }
 
-/* Chart */
-async function loadChart(){
-  const ref=db.collection("students").doc(currentStudentId).collection("records");
-  const snap=await ref.orderBy("timestamp","desc").limit(20).get();
-  let recyclable=0,non=0;
-  snap.forEach(d=>{const v=d.data().label;if(v.includes("recyclable"))recyclable++;else non++;});
-  const ctx=document.getElementById("chart").getContext("2d");
-  new Chart(ctx,{type:"doughnut",data:{
-    labels:["Recyclable","Non-Recyclable"],
-    datasets:[{data:[recyclable,non],backgroundColor:["#16a34a","#f87171"]}]
-  }});
+/* ========== Statistics (Fixed Classification) ========== */
+async function loadStats() {
+  const recordsSnap = await db.collectionGroup("records").get();
+  let recy = 0, non = 0;
+  recordsSnap.forEach(r => {
+    const d = r.data();
+    if (!d || !d.label) return;
+    const lb = String(d.label).toLowerCase();
+    if (lb === "recyclable") recy++;
+    else if (["non-recyclable", "non recyclable", "nonrecyclable"].includes(lb)) non++;
+  });
+
+  const ctx = document.getElementById("chart").getContext('2d');
+  if (pieChart) { pieChart.destroy(); } // 防止疊加
+  pieChart = new Chart(ctx, {
+    type: 'pie',
+    data: {
+      labels: ["Recyclable", "Non-recyclable"],
+      datasets: [{ data: [recy, non], backgroundColor: ["#16a34a", "#ef4444"] }]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+  });
+}
+
+/* ========== Recent Activity ========== */
+async function loadRecentRecords() {
+  const list = document.getElementById("recentList");
+  list.innerHTML = "";
+  if (!currentStudentId) return;
+  const q = await db.collection("students").doc(currentStudentId)
+                .collection("records").orderBy("timestamp", "desc").limit(10).get();
+  if (q.empty) { list.innerHTML = `<li class="text-sm text-gray-500">No recent activity</li>`; return; }
+  q.forEach(doc => {
+    const d = doc.data(); const t = d.timestamp ? d.timestamp.toDate().toLocaleString() : "—";
+    list.innerHTML += `<li class="text-sm"><span class="font-medium">${d.label}</span> · +${d.pointsAdded} pts <span class="text-gray-400">(${t})</span></li>`;
+  });
 }
 </script>
 </body>
 </html>
-
-
-
-
