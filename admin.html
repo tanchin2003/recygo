@@ -14,6 +14,7 @@
 
 <h1 class="text-3xl font-bold text-green-800 mb-6 text-center">♻️ RecyGo Admin Dashboard</h1>
 
+<!-- ✅ 學生積分表 -->
 <div class="bg-white p-6 rounded-xl shadow-lg max-w-5xl mx-auto">
   <div class="flex justify-between items-center mb-4">
     <h2 class="text-xl font-semibold">📋 Student Points</h2>
@@ -21,18 +22,21 @@
   </div>
   <table class="w-full text-left border-collapse" id="studentTable">
     <thead class="bg-green-100">
-      <tr><th class="p-2">Student ID</th><th class="p-2">Points</th><th class="p-2">Actions</th></tr>
+      <tr><th class="p-2">Student ID</th><th class="p-2">Points</th><th class="p-2 text-center">Actions</th></tr>
     </thead>
     <tbody></tbody>
   </table>
 </div>
 
+<!-- ✅ 垃圾分類統計 -->
 <div class="bg-white p-6 rounded-xl shadow-lg max-w-5xl mx-auto mt-6">
-  <h2 class="text-xl font-semibold mb-2">📊 Overall Statistics</h2>
+  <h2 class="text-xl font-semibold mb-2">📊 Overall Classification Statistics</h2>
   <canvas id="chart" class="max-w-md"></canvas>
+  <div id="statText" class="text-center text-gray-600 mt-4 text-sm"></div>
 </div>
 
 <script>
+/* ========== Firebase ========== */
 const firebaseConfig = {
   apiKey: "AIzaSyAjWXFfQT_5dBtDZvYFwyj4kGfeWQdcCBU",
   authDomain: "recygo-cd169.firebaseapp.com",
@@ -45,6 +49,9 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
+let chartInstance = null;
+
+/* ========== 讀取學生列表 ========== */
 async function loadStudents() {
   const tbody = document.querySelector("#studentTable tbody");
   tbody.innerHTML = "<tr><td colspan='3' class='p-3 text-center text-gray-500'>Loading...</td></tr>";
@@ -57,14 +64,32 @@ async function loadStudents() {
       <tr class="border-b">
         <td class="p-2">${doc.id}</td>
         <td class="p-2">${data.points || 0}</td>
-        <td class="p-2">
-          <button onclick="resetPoints('${doc.id}')" class="bg-red-500 text-white px-3 py-1 rounded">Reset</button>
+        <td class="p-2 text-center">
+          <button onclick="redeemPoints('${doc.id}', ${data.points || 0})" 
+                  class="bg-yellow-500 text-white px-3 py-1 rounded mr-2 hover:bg-yellow-600">Redeem</button>
+          <button onclick="resetPoints('${doc.id}')" 
+                  class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600">Reset</button>
         </td>
       </tr>`;
   });
   loadStats();
 }
 
+/* ========== 扣分功能（Redeem） ========== */
+async function redeemPoints(id, currentPoints) {
+  const val = prompt(`Enter points to redeem for ${id} (current: ${currentPoints})`);
+  const pts = parseInt(val);
+  if (!pts || pts <= 0) return alert("Invalid points value.");
+  if (pts > currentPoints) return alert("Cannot redeem more than current points.");
+
+  await db.collection("students").doc(id).update({
+    points: currentPoints - pts
+  });
+  alert(`Redeemed ${pts} points from ${id}`);
+  loadStudents();
+}
+
+/* ========== 重置分數 ========== */
 async function resetPoints(id) {
   if (confirm("Reset points for " + id + "?")) {
     await db.collection("students").doc(id).update({ points: 0 });
@@ -73,27 +98,45 @@ async function resetPoints(id) {
   }
 }
 
+/* ========== 垃圾分類統計（全系統） ========== */
 async function loadStats() {
   const recSnap = await db.collectionGroup("records").get();
-  let recy = 0, non = 0;
+  let pet = 0, plastic = 0, metal = 0, non = 0;
   recSnap.forEach(r => {
-    const d = r.data();
-    if (!d || !d.label) return;
+    const d = r.data(); if (!d || !d.label) return;
     const lb = String(d.label).toLowerCase();
-    if (lb === "recyclable") recy++;
-    else if (["non-recyclable", "non recyclable", "nonrecyclable"].includes(lb)) non++;
+    if (lb === "pet bottle") pet++;
+    else if (lb === "plastic") plastic++;
+    else if (lb === "metal") metal++;
+    else if (["non-recyclable","non recyclable","nonrecyclable"].includes(lb)) non++;
   });
+
   const ctx = document.getElementById("chart").getContext("2d");
-  new Chart(ctx, {
+  const data = {
+    labels: ["PET Bottle", "Plastic", "Metal", "Non-Recyclable"],
+    datasets: [{
+      label: "Items Detected",
+      data: [pet, plastic, metal, non],
+      backgroundColor: ["#16a34a", "#3b82f6", "#f97316", "#ef4444"]
+    }]
+  };
+
+  if (chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(ctx, {
     type: "bar",
-    data: {
-      labels: ["Recyclable", "Non-recyclable"],
-      datasets: [{ label: "Items Detected", data: [recy, non], backgroundColor: ["#16a34a", "#ef4444"] }]
-    },
-    options: { responsive: true, plugins: { legend: { display: false } } }
+    data: data,
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true } }
+    }
   });
+
+  document.getElementById("statText").innerText =
+    `Detected so far: ${pet} PET bottles, ${plastic} plastics, ${metal} metals, and ${non} non-recyclables.`;
 }
 
+/* ========== 初始化 ========== */
 document.getElementById("refreshBtn").addEventListener("click", loadStudents);
 loadStudents();
 </script>
