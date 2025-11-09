@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>♻️ RecyGo Admin Dashboard</title>
+<link rel="icon" type="image/png" href="logo.jpg">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-green-50 min-h-screen p-6">
+
+<h1 class="text-3xl font-bold text-green-800 mb-6 text-center">♻️ RecyGo Admin Dashboard</h1>
+
+<div class="bg-white p-6 rounded-xl shadow-lg max-w-5xl mx-auto">
+  <div class="flex justify-between items-center mb-4">
+    <h2 class="text-xl font-semibold">📋 Student Points</h2>
+    <button id="refreshBtn" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">Refresh</button>
+  </div>
+  <table class="w-full text-left border-collapse" id="studentTable">
+    <thead class="bg-green-100">
+      <tr><th class="p-2">Student ID</th><th class="p-2">Points</th><th class="p-2">Actions</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<div class="bg-white p-6 rounded-xl shadow-lg max-w-5xl mx-auto mt-6">
+  <h2 class="text-xl font-semibold mb-2">📊 Overall Statistics</h2>
+  <canvas id="chart" class="max-w-md"></canvas>
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyAjWXFfQT_5dBtDZvYFwyj4kGfeWQdcCBU",
+  authDomain: "recygo-cd169.firebaseapp.com",
+  projectId: "recygo-cd169",
+  storageBucket: "recygo-cd169.firebasestorage.app",
+  messagingSenderId: "965670715995",
+  appId: "1:965670715995:web:b4da5995cb0bd5da8c357e",
+  measurementId: "G-9MD9PD9PJL"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+async function loadStudents() {
+  const tbody = document.querySelector("#studentTable tbody");
+  tbody.innerHTML = "<tr><td colspan='3' class='p-3 text-center text-gray-500'>Loading...</td></tr>";
+
+  const snap = await db.collection("students").orderBy("points", "desc").get();
+  tbody.innerHTML = "";
+  snap.forEach(doc => {
+    const data = doc.data();
+    tbody.innerHTML += `
+      <tr class="border-b">
+        <td class="p-2">${doc.id}</td>
+        <td class="p-2">${data.points || 0}</td>
+        <td class="p-2">
+          <button onclick="resetPoints('${doc.id}')" class="bg-red-500 text-white px-3 py-1 rounded">Reset</button>
+        </td>
+      </tr>`;
+  });
+  loadStats();
+}
+
+async function resetPoints(id) {
+  if (confirm("Reset points for " + id + "?")) {
+    await db.collection("students").doc(id).update({ points: 0 });
+    alert("Points reset for " + id);
+    loadStudents();
+  }
+}
+
+async function loadStats() {
+  const recSnap = await db.collectionGroup("records").get();
+  let recy = 0, non = 0;
+  recSnap.forEach(r => {
+    const d = r.data();
+    if (!d || !d.label) return;
+    const lb = String(d.label).toLowerCase();
+    if (lb === "recyclable") recy++;
+    else if (["non-recyclable", "non recyclable", "nonrecyclable"].includes(lb)) non++;
+  });
+  const ctx = document.getElementById("chart").getContext("2d");
+  new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: ["Recyclable", "Non-recyclable"],
+      datasets: [{ label: "Items Detected", data: [recy, non], backgroundColor: ["#16a34a", "#ef4444"] }]
+    },
+    options: { responsive: true, plugins: { legend: { display: false } } }
+  });
+}
+
+document.getElementById("refreshBtn").addEventListener("click", loadStudents);
+loadStudents();
+</script>
+</body>
+</html>
