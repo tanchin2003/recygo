@@ -1,6 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<!-- 📱 Auto redirect to mobile version -->
+<script>
+  if (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+    window.location.href = "mobile.html";
+  }
+</script>
+
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>♻️ RecyGo</title>
@@ -33,7 +40,7 @@
 
 <body class="bg-gradient-to-br from-green-50 to-green-100 min-h-screen flex flex-col items-center justify-center text-gray-800">
 
-<!-- ========== Login Page ========== -->
+<!-- ========== Login Section ========== -->
 <section id="login-section" class="bg-white p-8 rounded-2xl shadow-xl w-11/12 max-w-md text-center">
   <img src="logo.jpg" alt="RecyGo Logo" class="mx-auto w-24 h-24 rounded-xl mb-3">
   <h1 class="text-3xl font-extrabold text-green-800 mb-2">♻️ RecyGo</h1>
