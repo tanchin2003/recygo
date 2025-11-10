@@ -321,7 +321,30 @@ async function loadRecentRecords() {
     const d = doc.data(); const t = d.timestamp ? d.timestamp.toDate().toLocaleString() : "—";
     list.innerHTML += `<li class="text-sm"><span class="font-medium">${d.label}</span> · +${d.pointsAdded} pts <span class="text-gray-400">(${t})</span></li>`;
   });
+  /* ========== Logout ========== */
+document.getElementById("logoutBtn").addEventListener("click", async () => {
+  detecting = false; // 停止检测
+  if (webcam) await webcam.stop();
+  if (writer) {
+    try { 
+      await writer.write(new TextEncoder().encode("STOP\n")); 
+      writer.releaseLock();
+    } catch(e){}
+  }
+  if (port) await port.close();
+
+  currentStudentId = null;
+  document.getElementById("studentId").value = "";
+  document.getElementById("login-section").classList.remove("hidden");
+  document.getElementById("main-section").classList.add("hidden");
+
+  document.getElementById("status").innerText = "Status: Not connected";
+  document.getElementById("detectStatus").innerText = "💤 Waiting for detection...";
+  document.getElementById("points").innerText = "0";
+  document.getElementById("userId").innerText = "—";
+});
 }
 </script>
 </body>
 </html>
+
