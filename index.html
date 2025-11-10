@@ -17,6 +17,9 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <style>
 #webcam-container canvas {
   width: 100% !important;
@@ -74,16 +77,16 @@
       <div id="webcam-container" class="mx-auto text-center"></div>
     </div>
 
-    <!-- Info Panel -->
+    <!-- Right Panel: Leaderboard & Stats -->
     <div class="bg-white p-6 rounded-xl shadow space-y-6">
-      <h2 class="text-xl font-semibold text-green-800 mb-2">🧭 Sorting Angles</h2>
-      <ul class="space-y-2 text-gray-700">
-        <li>♻️ Non-recyclable → 0°</li>
-        <li>🧃 Plastic → 45°</li>
-        <li>🥤 PET Bottle → 90°</li>
-        <li>🔩 Metal → 135°</li>
-      </ul>
-      <p class="text-sm text-gray-500 mt-6">Make sure Arduino is connected before starting detection.</p>
+      <h2 class="text-xl font-semibold text-green-800 mb-2">🏆 Top Recyclers</h2>
+      <ul id="leaderboardList" class="space-y-2"></ul>
+
+      <h2 class="text-xl font-semibold text-green-800 mb-2">📊 Recycling Statistics</h2>
+      <canvas id="chart" class="w-full max-w-md"></canvas>
+
+      <h3 class="text-lg font-medium text-green-700 mb-2">📝 Recent Activity</h3>
+      <ul id="recentList" class="text-sm space-y-1 max-h-48 overflow-auto"></ul>
     </div>
 
   </div>
@@ -106,96 +109,98 @@ const db = firebase.firestore();
 // ===== Globals =====
 const URL = "https://teachablemachine.withgoogle.com/models/rutvcjBAk/";
 let model, webcam, port, writer;
-let detecting = false;
-let rewardPoints = 0;
-let currentStudentId = null;
-let lastLabel = "", stableCount = 0, lastConfirmedLabel = "";
+let detecting=false, rewardPoints=0, currentStudentId=null;
+let lastLabel="", stableCount=0, lastConfirmedLabel="";
 const STABLE_THRESHOLD = 3;
+let pieChart = null;
 
 // ===== Login =====
-document.getElementById("loginBtn").addEventListener("click", async () => {
-  const id = document.getElementById("studentId").value.trim();
-  const errorMsg = document.getElementById("error");
-  if (!/^\d{8}$/.test(id)) return errorMsg.textContent = "⚠️ Please enter a valid 8-digit ID";
+document.getElementById("loginBtn").addEventListener("click", async ()=>{
+  const id=document.getElementById("studentId").value.trim();
+  const errorMsg=document.getElementById("error");
+  if(!/^\d{8}$/.test(id)) return errorMsg.textContent="⚠️ Please enter a valid 8-digit ID";
 
-  errorMsg.textContent = "⏳ Logging in...";
-  currentStudentId = id;
+  errorMsg.textContent="⏳ Logging in...";
+  currentStudentId=id;
 
-  try {
-    const docRef = db.collection("students").doc(id);
-    const docSnap = await docRef.get();
-    if (docSnap.exists) rewardPoints = docSnap.data().points || 0;
-    else { await docRef.set({ points: 0 }); rewardPoints = 0; }
+  try{
+    const docRef=db.collection("students").doc(id);
+    const docSnap=await docRef.get();
+    if(docSnap.exists) rewardPoints=docSnap.data().points||0;
+    else{ await docRef.set({points:0}); rewardPoints=0; }
 
-    document.getElementById("points").innerText = rewardPoints;
-    document.getElementById("userId").innerText = id;
+    document.getElementById("points").innerText=rewardPoints;
+    document.getElementById("userId").innerText=id;
     document.getElementById("login-section").classList.add("hidden");
     document.getElementById("main-section").classList.remove("hidden");
-    errorMsg.textContent = "";
-  } catch(e) {
-    errorMsg.textContent = "❌ Failed to connect Firebase.";
+
+    await loadLeaderboard();
+    await loadStats();
+    await loadRecentRecords();
+    errorMsg.textContent="";
+  }catch(e){
     console.error(e);
+    errorMsg.textContent="❌ Failed to connect Firebase.";
   }
 });
 
 // ===== Logout =====
-document.getElementById("logoutBtn").addEventListener("click", async () => {
-  detecting = false;
-  if (webcam) await webcam.stop();
-  if (writer) try { await writer.write(new TextEncoder().encode("STOP\n")); writer.releaseLock(); } catch(e){}
-  if (port) await port.close();
+document.getElementById("logoutBtn").addEventListener("click", async ()=>{
+  detecting=false;
+  if(webcam) await webcam.stop();
+  if(writer) try{await writer.write(new TextEncoder().encode("STOP\n")); writer.releaseLock();}catch(e){}
+  if(port) await port.close();
 
-  currentStudentId = null;
-  rewardPoints = 0;
-  document.getElementById("studentId").value = "";
+  currentStudentId=null; rewardPoints=0;
+  document.getElementById("studentId").value="";
   document.getElementById("login-section").classList.remove("hidden");
   document.getElementById("main-section").classList.add("hidden");
-  document.getElementById("status").innerText = "Status: Not connected";
-  document.getElementById("detectStatus").innerText = "💤 Waiting for detection...";
-  document.getElementById("points").innerText = "0";
-  document.getElementById("userId").innerText = "—";
+  document.getElementById("status").innerText="Status: Not connected";
+  document.getElementById("detectStatus").innerText="💤 Waiting for detection...";
+  document.getElementById("points").innerText="0";
+  document.getElementById("userId").innerText="—";
 });
 
 // ===== Connect Arduino =====
-document.getElementById("connectBtn").addEventListener("click", async () => {
-  try {
-    port = await navigator.serial.requestPort();
-    await port.open({ baudRate: 9600 });
-    writer = port.writable.getWriter();
-    document.getElementById("status").innerText = "✅ Arduino Connected";
-  } catch(err) {
-    alert("❌ Connection failed: " + err);
-    document.getElementById("status").innerText = "❌ Arduino connection failed";
+document.getElementById("connectBtn").addEventListener("click", async ()=>{
+  try{
+    port=await navigator.serial.requestPort();
+    await port.open({baudRate:9600});
+    writer=port.writable.getWriter();
+    document.getElementById("status").innerText="✅ Arduino Connected";
+  }catch(err){
+    alert("❌ Connection failed: "+err);
+    document.getElementById("status").innerText="❌ Arduino connection failed";
   }
 });
 
 // ===== Init Teachable Machine =====
-async function init() {
-  if (model) return;
-  model = await tmImage.load(URL + "model.json", URL + "metadata.json");
-  webcam = new tmImage.Webcam(320, 320, true);
+async function init(){
+  if(model) return;
+  model=await tmImage.load(URL+"model.json", URL+"metadata.json");
+  webcam=new tmImage.Webcam(320,320,true);
   await webcam.setup();
   await webcam.play();
-  document.getElementById("webcam-container").innerHTML = "";
+  document.getElementById("webcam-container").innerHTML="";
   document.getElementById("webcam-container").appendChild(webcam.canvas);
 }
 
 // ===== Detection Loop =====
-async function loop() {
+async function loop(){
   webcam.update();
   await predict();
-  if (detecting) setTimeout(loop, 250);
+  if(detecting) setTimeout(loop,250);
 }
 
-async function predict() {
-  const prediction = await model.predict(webcam.canvas);
-  let highest = prediction.reduce((max,p)=>p.probability>max.probability?p:max,prediction[0]);
-  const className = highest.className.trim().toLowerCase();
-  const confidence = highest.probability;
-  document.getElementById("label").innerText = `Detected: ${className} (${(confidence*100).toFixed(1)}%)`;
+async function predict(){
+  const prediction=await model.predict(webcam.canvas);
+  let highest=prediction.reduce((max,p)=>p.probability>max.probability?p:max,prediction[0]);
+  const className=highest.className.trim().toLowerCase();
+  const confidence=highest.probability;
+  document.getElementById("label").innerText=`Detected: ${className} (${(confidence*100).toFixed(1)}%)`;
 
   if(className===lastLabel && confidence>0.6) stableCount++;
-  else { stableCount=0; lastLabel=className; }
+  else{stableCount=0; lastLabel=className;}
 
   if(stableCount>=STABLE_THRESHOLD){
     stableCount=0;
@@ -203,27 +208,38 @@ async function predict() {
   }
 }
 
-// ===== Handle Stable Detection =====
 async function handleStableDetection(label){
   if(label===lastConfirmedLabel) return;
   lastConfirmedLabel=label;
-
   let msg="", pointsToAdd=0;
   const ds=document.getElementById("detectStatus");
 
   if(/non[- ]?recyclable/i.test(label)){
     msg="NONRECYCLABLE\n"; ds.textContent="🚫 Non-recyclable detected!"; ds.style.color="red"; pointsToAdd=1;
-  } else if(/plastic/i.test(label)){
+  }else if(/plastic/i.test(label)){
     msg="PLASTIC\n"; ds.textContent="♻️ Plastic detected!"; ds.style.color="blue"; pointsToAdd=3;
-  } else if(/pet.?bottle|bottle/i.test(label)){
+  }else if(/pet.?bottle|bottle/i.test(label)){
     msg="PETBOTTLE\n"; ds.textContent="🥤 PET Bottle detected!"; ds.style.color="green"; pointsToAdd=5;
-  } else if(/metal|tin|can/i.test(label)){
+  }else if(/metal|tin|can/i.test(label)){
     msg="METAL\n"; ds.textContent="🔩 Metal detected!"; ds.style.color="gray"; pointsToAdd=4;
-  } else { ds.textContent="⚠️ Unknown label: "+label; ds.style.color="#666"; return; }
+  }else{ ds.textContent="⚠️ Unknown label: "+label; ds.style.color="#666"; return;}
 
   rewardPoints+=pointsToAdd;
   document.getElementById("points").innerText=rewardPoints;
+
   if(writer) try{await writer.write(new TextEncoder().encode(msg));}catch(e){console.error(e);}
+
+  // Save to Firebase
+  if(currentStudentId){
+    const studentRef=db.collection("students").doc(currentStudentId);
+    await studentRef.update({points:rewardPoints});
+    await studentRef.collection("records").add({
+      label:label,
+      pointsAdded:pointsToAdd,
+      timestamp:firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await loadLeaderboard(); await loadStats(); await loadRecentRecords();
+  }
 }
 
 // ===== Buttons =====
@@ -241,6 +257,54 @@ document.getElementById("stopBtn").addEventListener("click", async ()=>{
   if(writer) await writer.write(new TextEncoder().encode("STOP\n"));
 });
 
+// ===== Leaderboard & Stats =====
+async function loadLeaderboard(){
+  const snapshot=await db.collection("students").orderBy("points","desc").limit(5).get();
+  const list=document.getElementById("leaderboardList"); list.innerHTML="";
+  if(snapshot.empty){ list.innerHTML="<li class='p-2 bg-gray-50 rounded-md'>No data yet</li>"; return;}
+  let rank=1;
+  snapshot.forEach(doc=>{
+    const data=doc.data(); const score=data.points||0;
+    const isMe=(doc.id===currentStudentId);
+    list.innerHTML+=`<li class="flex items-center justify-between p-2 rounded-md ${isMe?'bg-green-50 border border-green-100':'bg-white'}">
+      <div class="text-sm"><span class="font-semibold">#${rank}</span> &nbsp; ${doc.id}</div>
+      <div class="text-sm font-medium text-green-700">${score} pts</div>
+    </li>`;
+    rank++;
+  });
+}
+
+async function loadStats(){
+  const recordsSnap=await db.collectionGroup("records").get();
+  let non=0, plastic=0, pet=0, metal=0;
+  recordsSnap.forEach(r=>{
+    const lb=String(r.data().label).toLowerCase();
+    if(lb==="non-recyclable") non++;
+    else if(lb==="plastic") plastic++;
+    else if(lb==="pet bottle") pet++;
+    else if(lb==="metal") metal++;
+  });
+
+  const ctx=document.getElementById("chart").getContext('2d');
+  const data={
+    labels:["Non-recyclable","Plastic","PET Bottle","Metal"],
+    datasets:[{data:[non,plastic,pet,metal],backgroundColor:["#ef4444","#3b82f6","#16a34a","#6b7280"]}]
+  };
+  if(pieChart){ pieChart.data=data; pieChart.update(); }
+  else pieChart=new Chart(ctx,{type:'pie',data:data,options:{responsive:true,plugins:{legend:{position:'bottom'}}}});
+}
+
+async function loadRecentRecords(){
+  const list=document.getElementById("recentList"); list.innerHTML="";
+  if(!currentStudentId) return;
+  const q=await db.collection("students").doc(currentStudentId)
+            .collection("records").orderBy("timestamp","desc").limit(10).get();
+  if(q.empty){ list.innerHTML="<li class='text-sm text-gray-500'>No recent activity</li>"; return;}
+  q.forEach(doc=>{
+    const d=doc.data(); const t=d.timestamp?d.timestamp.toDate().toLocaleString():"—";
+    list.innerHTML+=`<li class="text-sm"><span class="font-medium">${d.label}</span> · +${d.pointsAdded} pts <span class="text-gray-400">(${t})</span></li>`;
+  });
+}
 </script>
 </body>
 </html>
