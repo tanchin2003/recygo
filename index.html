@@ -107,7 +107,7 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 // ===== Globals =====
-const URL = "https://teachablemachine.withgoogle.com/models/rutvcjBAk/";
+const URL = "https://teachablemachine.withgoogle.com/models/rutvcjBAk/"; // ✅ updated link
 let model, webcam, port, writer;
 let detecting=false, rewardPoints=0, currentStudentId=null;
 let lastLabel="", stableCount=0, lastConfirmedLabel="";
@@ -192,7 +192,6 @@ async function loop(){
   if(detecting) setTimeout(loop,250);
 }
 
-// === 修正版：分類比對不分大小寫與空格 ===
 function normalizeLabel(label){
   return label.toLowerCase().replace(/\s|-/g,"");
 }
@@ -237,7 +236,6 @@ async function handleStableDetection(label){
 
   if(writer) try{await writer.write(new TextEncoder().encode(msg));}catch(e){console.error(e);}
 
-  // Save to Firebase
   if(currentStudentId){
     const studentRef=db.collection("students").doc(currentStudentId);
     await studentRef.update({points:rewardPoints});
