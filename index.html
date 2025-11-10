@@ -109,45 +109,49 @@ const db = firebase.firestore();
 // ===== Globals =====
 const URL = "https://teachablemachine.withgoogle.com/models/rutvcjBAk/";
 let model, webcam, port, writer;
-let detecting = false, rewardPoints = 0, currentStudentId = null;
-let lastLabel = "", stableCount = 0, lastConfirmedLabel = "";
+let detecting=false, rewardPoints=0, currentStudentId=null;
+let lastLabel="", stableCount=0, lastConfirmedLabel="";
 const STABLE_THRESHOLD = 3;
 let pieChart = null;
 
 // ===== Login =====
 document.getElementById("loginBtn").addEventListener("click", async ()=>{
-  const id = document.getElementById("studentId").value.trim();
-  const errorMsg = document.getElementById("error");
-  if(!/^\d{8}$/.test(id)) return errorMsg.textContent = "⚠️ Please enter a valid 8-digit ID";
-  errorMsg.textContent = "⏳ Logging in...";
-  currentStudentId = id;
+  const id=document.getElementById("studentId").value.trim();
+  const errorMsg=document.getElementById("error");
+  if(!/^\d{8}$/.test(id)) return errorMsg.textContent="⚠️ Please enter a valid 8-digit ID";
+
+  errorMsg.textContent="⏳ Logging in...";
+  currentStudentId=id;
 
   try{
-    const docRef = db.collection("students").doc(id);
-    const docSnap = await docRef.get();
-    if(docSnap.exists) rewardPoints = docSnap.data().points || 0;
-    else{ await docRef.set({points:0}); rewardPoints = 0; }
+    const docRef=db.collection("students").doc(id);
+    const docSnap=await docRef.get();
+    if(docSnap.exists) rewardPoints=docSnap.data().points||0;
+    else{ await docRef.set({points:0}); rewardPoints=0; }
 
-    document.getElementById("points").innerText = rewardPoints;
-    document.getElementById("userId").innerText = id;
+    document.getElementById("points").innerText=rewardPoints;
+    document.getElementById("userId").innerText=id;
     document.getElementById("login-section").classList.add("hidden");
     document.getElementById("main-section").classList.remove("hidden");
 
-    await loadLeaderboard(); await loadStats(); await loadRecentRecords();
-    errorMsg.textContent = "";
+    await loadLeaderboard();
+    await loadStats();
+    await loadRecentRecords();
+    errorMsg.textContent="";
   }catch(e){
     console.error(e);
-    errorMsg.textContent = "❌ Failed to connect Firebase.";
+    errorMsg.textContent="❌ Failed to connect Firebase.";
   }
 });
 
 // ===== Logout =====
 document.getElementById("logoutBtn").addEventListener("click", async ()=>{
-  detecting = false;
+  detecting=false;
   if(webcam) await webcam.stop();
   if(writer) try{await writer.write(new TextEncoder().encode("STOP\n")); writer.releaseLock();}catch(e){}
   if(port) await port.close();
-  currentStudentId = null; rewardPoints = 0;
+
+  currentStudentId=null; rewardPoints=0;
   document.getElementById("studentId").value="";
   document.getElementById("login-section").classList.remove("hidden");
   document.getElementById("main-section").classList.add("hidden");
@@ -160,24 +164,24 @@ document.getElementById("logoutBtn").addEventListener("click", async ()=>{
 // ===== Connect Arduino =====
 document.getElementById("connectBtn").addEventListener("click", async ()=>{
   try{
-    port = await navigator.serial.requestPort();
-    await port.open({ baudRate: 9600 });
-    writer = port.writable.getWriter();
-    document.getElementById("status").innerText = "✅ Arduino Connected";
+    port=await navigator.serial.requestPort();
+    await port.open({baudRate:9600});
+    writer=port.writable.getWriter();
+    document.getElementById("status").innerText="✅ Arduino Connected";
   }catch(err){
-    alert("❌ Connection failed: " + err);
-    document.getElementById("status").innerText = "❌ Arduino connection failed";
+    alert("❌ Connection failed: "+err);
+    document.getElementById("status").innerText="❌ Arduino connection failed";
   }
 });
 
-// ===== Teachable Machine =====
+// ===== Init Teachable Machine =====
 async function init(){
   if(model) return;
-  model = await tmImage.load(URL + "model.json", URL + "metadata.json");
-  webcam = new tmImage.Webcam(320, 320, true);
+  model=await tmImage.load(URL+"model.json", URL+"metadata.json");
+  webcam=new tmImage.Webcam(320,320,true);
   await webcam.setup();
   await webcam.play();
-  document.getElementById("webcam-container").innerHTML = "";
+  document.getElementById("webcam-container").innerHTML="";
   document.getElementById("webcam-container").appendChild(webcam.canvas);
 }
 
@@ -185,43 +189,57 @@ async function init(){
 async function loop(){
   webcam.update();
   await predict();
-  if(detecting) setTimeout(loop, 250);
+  if(detecting) setTimeout(loop,250);
+}
+
+// === 修正版：分類比對不分大小寫與空格 ===
+function normalizeLabel(label){
+  return label.toLowerCase().replace(/\s|-/g,"");
 }
 
 async function predict(){
-  const prediction = await model.predict(webcam.canvas);
-  let highest = prediction.reduce((max,p)=>p.probability>max.probability?p:max,prediction[0]);
-  const className = highest.className.trim();
-  const confidence = highest.probability;
-  document.getElementById("label").innerText = `Detected: ${className} (${(confidence*100).toFixed(1)}%)`;
+  const prediction=await model.predict(webcam.canvas);
+  let highest=prediction.reduce((max,p)=>p.probability>max.probability?p:max,prediction[0]);
+  const rawLabel=highest.className;
+  const label=normalizeLabel(rawLabel);
+  const confidence=highest.probability;
+  document.getElementById("label").innerText=`Detected: ${rawLabel} (${(confidence*100).toFixed(1)}%)`;
 
-  if(className===lastLabel && confidence>0.6) stableCount++;
-  else{ stableCount=0; lastLabel=className; }
+  if(label===lastLabel && confidence>0.6) stableCount++;
+  else{stableCount=0; lastLabel=label;}
 
   if(stableCount>=STABLE_THRESHOLD){
     stableCount=0;
-    handleStableDetection(className);
+    handleStableDetection(label);
   }
 }
 
 async function handleStableDetection(label){
   if(label===lastConfirmedLabel) return;
-  lastConfirmedLabel = label;
-  let msg = "", pointsToAdd = 0;
-  const ds = document.getElementById("detectStatus");
+  lastConfirmedLabel=label;
+  let msg="", pointsToAdd=0;
+  const ds=document.getElementById("detectStatus");
 
-  if(label==="non-recyclable"){ msg="NONRECYCLABLE\n"; ds.textContent="🚫 Non-recyclable detected!"; ds.style.color="red"; pointsToAdd=1; }
-  else if(label==="plastic"){ msg="PLASTIC\n"; ds.textContent="♻️ Plastic detected!"; ds.style.color="blue"; pointsToAdd=3; }
-  else if(label==="PET bottle"){ msg="PETBOTTLE\n"; ds.textContent="🥤 PET Bottle detected!"; ds.style.color="green"; pointsToAdd=5; }
-  else if(label==="metal"){ msg="METAL\n"; ds.textContent="🔩 Metal detected!"; ds.style.color="gray"; pointsToAdd=4; }
-  else { ds.textContent="⚠️ Unknown label: "+label; ds.style.color="#666"; return; }
+  if(label==="nonrecyclable"){
+    msg="NONRECYCLABLE\n"; ds.textContent="🚫 Non-recyclable detected!"; ds.style.color="red"; pointsToAdd=1;
+  }else if(label==="plastic"){
+    msg="PLASTIC\n"; ds.textContent="♻️ Plastic detected!"; ds.style.color="blue"; pointsToAdd=3;
+  }else if(label==="petbottle"){
+    msg="PETBOTTLE\n"; ds.textContent="🥤 PET Bottle detected!"; ds.style.color="green"; pointsToAdd=5;
+  }else if(label==="metal"){
+    msg="METAL\n"; ds.textContent="🔩 Metal detected!"; ds.style.color="gray"; pointsToAdd=4;
+  }else{
+    ds.textContent="⚠️ Unknown label"; ds.style.color="#666"; return;
+  }
 
-  rewardPoints += pointsToAdd;
-  document.getElementById("points").innerText = rewardPoints;
+  rewardPoints+=pointsToAdd;
+  document.getElementById("points").innerText=rewardPoints;
+
   if(writer) try{await writer.write(new TextEncoder().encode(msg));}catch(e){console.error(e);}
 
+  // Save to Firebase
   if(currentStudentId){
-    const studentRef = db.collection("students").doc(currentStudentId);
+    const studentRef=db.collection("students").doc(currentStudentId);
     await studentRef.update({points:rewardPoints});
     await studentRef.collection("records").add({
       label:label,
@@ -235,22 +253,22 @@ async function handleStableDetection(label){
 // ===== Buttons =====
 document.getElementById("startBtn").addEventListener("click", async ()=>{
   if(!model) await init();
-  detecting = true;
-  document.getElementById("detectStatus").textContent = "🟡 Detecting...";
+  detecting=true;
+  document.getElementById("detectStatus").textContent="🟡 Detecting...";
   if(writer) await writer.write(new TextEncoder().encode("START\n"));
   loop();
 });
 
 document.getElementById("stopBtn").addEventListener("click", async ()=>{
-  detecting = false;
-  document.getElementById("detectStatus").textContent = "💤 Detection stopped.";
+  detecting=false;
+  document.getElementById("detectStatus").textContent="💤 Detection stopped.";
   if(writer) await writer.write(new TextEncoder().encode("STOP\n"));
 });
 
 // ===== Leaderboard & Stats =====
 async function loadLeaderboard(){
-  const snapshot = await db.collection("students").orderBy("points","desc").limit(5).get();
-  const list = document.getElementById("leaderboardList"); list.innerHTML="";
+  const snapshot=await db.collection("students").orderBy("points","desc").limit(5).get();
+  const list=document.getElementById("leaderboardList"); list.innerHTML="";
   if(snapshot.empty){ list.innerHTML="<li class='p-2 bg-gray-50 rounded-md'>No data yet</li>"; return;}
   let rank=1;
   snapshot.forEach(doc=>{
@@ -269,10 +287,10 @@ async function loadStats(){
   let non=0, plastic=0, pet=0, metal=0;
   recordsSnap.forEach(r=>{
     const lb=String(r.data().label).toLowerCase();
-    if(lb==="non-recyclable") non++;
-    else if(lb==="plastic") plastic++;
-    else if(lb==="pet bottle") pet++;
-    else if(lb==="metal") metal++;
+    if(lb.includes("non")) non++;
+    else if(lb.includes("plastic")) plastic++;
+    else if(lb.includes("pet")) pet++;
+    else if(lb.includes("metal")) metal++;
   });
 
   const ctx=document.getElementById("chart").getContext('2d');
@@ -287,7 +305,8 @@ async function loadStats(){
 async function loadRecentRecords(){
   const list=document.getElementById("recentList"); list.innerHTML="";
   if(!currentStudentId) return;
-  const q=await db.collection("students").doc(currentStudentId).collection("records").orderBy("timestamp","desc").limit(10).get();
+  const q=await db.collection("students").doc(currentStudentId)
+            .collection("records").orderBy("timestamp","desc").limit(10).get();
   if(q.empty){ list.innerHTML="<li class='text-sm text-gray-500'>No recent activity</li>"; return;}
   q.forEach(doc=>{
     const d=doc.data(); const t=d.timestamp?d.timestamp.toDate().toLocaleString():"—";
