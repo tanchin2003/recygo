@@ -16,9 +16,9 @@
 <!-- Tailwind -->
 <script src="https://cdn.tailwindcss.com"></script>
 
-<!-- TensorFlow / Teachable Machine -->
-<script src="https://teachablemachine.withgoogle.com/models/rutvcjBAk/"></script>
-<script src="https://teachablemachine.withgoogle.com/models/rutvcjBAk/"></script>
+<!-- ✅ TensorFlow & Teachable Machine -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.9.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
 
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
@@ -44,7 +44,7 @@
 <section id="login-section" class="bg-white p-8 rounded-2xl shadow-xl w-11/12 max-w-md text-center">
   <img src="logo.jpg" alt="RecyGo Logo" class="mx-auto w-24 h-24 rounded-xl mb-3">
   <h1 class="text-3xl font-extrabold text-green-800 mb-2">♻️ RecyGo</h1>
-  <p class="text-green-700 mb-6">Smart Recycling </p>
+  <p class="text-green-700 mb-6">Smart Recycling</p>
 
   <h3 class="text-lg font-semibold mb-3">👩‍🎓 Enter Your 8-digit Student ID</h3>
   <input id="studentId" type="text" placeholder="e.g. 20250123" maxlength="8"
@@ -111,6 +111,9 @@
 </section>
 
 <script>
+/* 防呆：確保 tmImage 可用 */
+if (typeof tmImage === "undefined") var tmImage = window.tmImage;
+
 /* ========== Firebase Setup ========== */
 const firebaseConfig = {
   apiKey: "AIzaSyAjWXFfQT_5dBtDZvYFwyj4kGfeWQdcCBU",
@@ -125,7 +128,7 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 /* ========== Globals ========== */
-const URL = "https://teachablemachine.withgoogle.com/models/WFZJS2Vtw/";
+const URL = "https://teachablemachine.withgoogle.com/models/rutvcjBAk/"; // ✅ 新模型
 let model, webcam, port, writer;
 let detecting = false;
 let rewardPoints = 0;
@@ -156,16 +159,6 @@ document.getElementById("loginBtn").addEventListener("click", async () => {
   await loadStats();
   await loadRecentRecords();
   errorMsg.textContent = "";
-});
-
-/* ========== Logout ========== */
-document.getElementById("logoutBtn").addEventListener("click", () => {
-  currentStudentId = null;
-  rewardPoints = 0;
-  document.getElementById("points").innerText = "0";
-  document.getElementById("login-section").classList.remove("hidden");
-  document.getElementById("main-section").classList.add("hidden");
-  document.getElementById("studentId").value = "";
 });
 
 /* ========== Arduino Connect ========== */
@@ -225,6 +218,7 @@ async function handleStableDetection(label) {
   let msg = "", pointsToAdd = 0;
   const ds = document.getElementById("detectStatus");
 
+  // ⚙️ 根據你 Teachable Machine 模型的標籤改這裡（請確認模型 class 名稱）
   switch(label) {
     case "non-recyclable":
       msg = "NONRECYCLABLE\n"; ds.textContent = "🚫 Non-recyclable detected!"; ds.style.color = "red"; pointsToAdd = 1; break;
@@ -331,5 +325,3 @@ async function loadRecentRecords() {
 </script>
 </body>
 </html>
-
-
