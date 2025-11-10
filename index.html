@@ -128,7 +128,7 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 /* ========== Globals ========== */
-const URL = "https://teachablemachine.withgoogle.com/models/rutvcjBAk/"; // ✅ 新模型
+const URL = "https://teachablemachine.withgoogle.com/models/rutvcjBAk/"; // ✅ 模型網址
 let model, webcam, port, writer;
 let detecting = false;
 let rewardPoints = 0;
@@ -218,7 +218,6 @@ async function handleStableDetection(label) {
   let msg = "", pointsToAdd = 0;
   const ds = document.getElementById("detectStatus");
 
-  // ⚙️ 根據你 Teachable Machine 模型的標籤改這裡（請確認模型 class 名稱）
   switch(label) {
     case "non-recyclable":
       msg = "NONRECYCLABLE\n"; ds.textContent = "🚫 Non-recyclable detected!"; ds.style.color = "red"; pointsToAdd = 1; break;
@@ -266,6 +265,29 @@ document.getElementById("stopBtn").addEventListener("click", async () => {
   document.getElementById("detectStatus").textContent = "💤 Detection stopped.";
   document.getElementById("status").innerText = "🟠 Detection stopped";
   if (writer) await writer.write(new TextEncoder().encode("STOP\n"));
+});
+
+/* ========== Logout 功能修正 ========== */
+document.getElementById("logoutBtn").addEventListener("click", async () => {
+  detecting = false;
+  if (webcam) await webcam.stop();
+  if (writer) {
+    try {
+      await writer.write(new TextEncoder().encode("STOP\n"));
+      writer.releaseLock();
+    } catch(e){}
+  }
+  if (port) await port.close();
+
+  currentStudentId = null;
+  document.getElementById("studentId").value = "";
+  document.getElementById("login-section").classList.remove("hidden");
+  document.getElementById("main-section").classList.add("hidden");
+
+  document.getElementById("status").innerText = "Status: Not connected";
+  document.getElementById("detectStatus").innerText = "💤 Waiting for detection...";
+  document.getElementById("points").innerText = "0";
+  document.getElementById("userId").innerText = "—";
 });
 
 /* ========== Leaderboard & Stats ========== */
@@ -321,30 +343,7 @@ async function loadRecentRecords() {
     const d = doc.data(); const t = d.timestamp ? d.timestamp.toDate().toLocaleString() : "—";
     list.innerHTML += `<li class="text-sm"><span class="font-medium">${d.label}</span> · +${d.pointsAdded} pts <span class="text-gray-400">(${t})</span></li>`;
   });
-  /* ========== Logout ========== */
-document.getElementById("logoutBtn").addEventListener("click", async () => {
-  detecting = false; // 停止检测
-  if (webcam) await webcam.stop();
-  if (writer) {
-    try { 
-      await writer.write(new TextEncoder().encode("STOP\n")); 
-      writer.releaseLock();
-    } catch(e){}
-  }
-  if (port) await port.close();
-
-  currentStudentId = null;
-  document.getElementById("studentId").value = "";
-  document.getElementById("login-section").classList.remove("hidden");
-  document.getElementById("main-section").classList.add("hidden");
-
-  document.getElementById("status").innerText = "Status: Not connected";
-  document.getElementById("detectStatus").innerText = "💤 Waiting for detection...";
-  document.getElementById("points").innerText = "0";
-  document.getElementById("userId").innerText = "—";
-});
 }
 </script>
 </body>
 </html>
-
