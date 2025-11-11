@@ -107,7 +107,7 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 // ===== Globals =====
-const URL = "https://teachablemachine.withgoogle.com/models/m5QlLDsjr/"; // ✅ updated link
+const URL = "https://teachablemachine.withgoogle.com/models/m5QlLDsjr/";
 let model, webcam, port, writer;
 let detecting=false, rewardPoints=0, currentStudentId=null;
 let lastLabel="", stableCount=0, lastConfirmedLabel="";
@@ -168,6 +168,7 @@ async function loop(){
   if(detecting) setTimeout(loop,250);
 }
 
+// ===== Prediction =====
 async function predict(){
   const prediction=await model.predict(webcam.canvas);
   let highest=prediction.reduce((a,b)=>a.probability>b.probability?a:b);
@@ -193,13 +194,13 @@ async function handleStableDetection(label){
 
   switch(label){
     case "non-recyclable":
-      msg="NONRECYCLABLE\n"; ds.textContent="🚫 Non-recyclable detected!"; ds.style.color="red"; pointsToAdd=1; break;
+      msg="NONRECYCLABLE\n"; ds.textContent="🚫 Non-recyclable detected!"; ds.style.color="red"; pointsToAdd=0; break;
     case "plastic":
-      msg="PLASTIC\n"; ds.textContent="♻️ Plastic detected!"; ds.style.color="blue"; pointsToAdd=3; break;
+      msg="PLASTIC\n"; ds.textContent="♻️ Plastic detected!"; ds.style.color="blue"; pointsToAdd=1; break;
     case "PET bottle":
-      msg="PETBOTTLE\n"; ds.textContent="🥤 PET Bottle detected!"; ds.style.color="green"; pointsToAdd=5; break;
+      msg="PETBOTTLE\n"; ds.textContent="🥤 PET Bottle detected!"; ds.style.color="green"; pointsToAdd=3; break;
     case "metal":
-      msg="METAL\n"; ds.textContent="🔩 Metal detected!"; ds.style.color="gray"; pointsToAdd=4; break;
+      msg="METAL\n"; ds.textContent="🔩 Metal detected!"; ds.style.color="gray"; pointsToAdd=2; break;
     default:
       ds.textContent="⚠️ Unknown category"; ds.style.color="#666"; return;
   }
@@ -266,7 +267,7 @@ async function loadStats(){
 
   const ctx=document.getElementById("chart").getContext('2d');
   const data={labels:["Non-recyclable","Plastic","PET Bottle","Metal"],
-    datasets:[{data:[non,plastic,pet,metal],backgroundColor:["#ef4444","#3b82f6","#16a34a","#6b7280"]}]};
+    datasets:[{data:[non,plastic,pet,metal],backgroundColor:["#ef4444","#3b82f6","#16a34a","#6b7280"]}]}.
   if(pieChart){pieChart.data=data; pieChart.update();}
   else pieChart=new Chart(ctx,{type:'pie',data:data,options:{plugins:{legend:{position:'bottom'}}}});
 }
@@ -286,4 +287,3 @@ async function loadRecentRecords(){
 </script>
 </body>
 </html>
-
