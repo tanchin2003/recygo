@@ -106,7 +106,7 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 // ===== Globals =====
-const URL = "https://teachablemachine.withgoogle.com/models/rutvcjBAk/"; // ✅ 你的模型
+const URL = "https://teachablemachine.withgoogle.com/models/QrklOM9Pj/"; // ✅ 已更換模型
 let model, webcam, port, writer;
 let detecting=false, rewardPoints=0, currentStudentId=null;
 let lastLabel="", stableCount=0, lastConfirmedLabel="";
@@ -265,7 +265,7 @@ async function loadStats(){
 
   const ctx=document.getElementById("chart").getContext('2d');
   const data={labels:["Non-recyclable","Plastic","PET Bottle","Metal"],
-    datasets:[{data:[non,plastic,pet,metal],backgroundColor:["#ef4444","#3b82f6","#16a34a","#6b7280"]}]}; // ✅ fixed semicolon
+    datasets:[{data:[non,plastic,pet,metal],backgroundColor:["#ef4444","#3b82f6","#16a34a","#6b7280"]}]};
   if(pieChart){pieChart.data=data; pieChart.update();}
   else pieChart=new Chart(ctx,{type:'pie',data:data,options:{plugins:{legend:{position:'bottom'}}}});
 }
@@ -279,7 +279,7 @@ async function loadRecentRecords(){
   if(q.empty){list.innerHTML="<li class='text-sm text-gray-500'>No recent activity</li>"; return;}
   q.forEach(doc=>{
     const d=doc.data(); const t=d.timestamp?d.timestamp.toDate().toLocaleString():"—";
-    list.innerHTML+=`<li class="text-sm"><span class="font-medium">${d.label}</span> · +${d.pointsAdded} pts <span class="text-gray-400">(${t})</span></li>`;
+    list.innerHTML+=`<li class="text-sm"><span class="text-gray-700 font-medium">${d.label}</span> · +${d.pointsAdded} pts <span class="text-gray-400">(${t})</span></li>`;
   });
 }
 </script>
