@@ -3,21 +3,13 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>♻️ RecyGo</title>
+<title>RecyGo</title>
 <link rel="icon" type="image/png" href="logo.jpg">
-
-<!-- Tailwind -->
 <script src="https://cdn.tailwindcss.com"></script>
-
-<!-- TensorFlow + Teachable Machine -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.9.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
-
-<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-
-<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
@@ -33,25 +25,24 @@
 
 <body class="bg-gradient-to-br from-green-50 to-green-100 min-h-screen flex flex-col items-center justify-center text-gray-800">
 
-<!-- ========== Login Section ========== -->
+<!-- Login -->
 <section id="login-section" class="bg-white p-8 rounded-2xl shadow-xl w-11/12 max-w-md text-center">
   <img src="logo.jpg" alt="RecyGo Logo" class="mx-auto w-24 h-24 rounded-xl mb-3">
-  <h1 class="text-3xl font-extrabold text-green-800 mb-2">♻️ RecyGo</h1>
+  <h1 class="text-3xl font-extrabold text-green-800 mb-2">RecyGo</h1>
   <p class="text-green-700 mb-6">Smart Recycling System</p>
-
   <h3 class="text-lg font-semibold mb-3">👩‍🎓 Enter Your 8-digit Student ID</h3>
   <input id="studentId" type="text" placeholder="e.g. 20250123" maxlength="8"
-        class="border-2 border-green-300 rounded-lg px-4 py-2 w-72 text-center focus:outline-none focus:border-green-500 transition mb-3" />
+    class="border-2 border-green-300 rounded-lg px-4 py-2 w-72 text-center focus:outline-none focus:border-green-500 transition mb-3" />
   <button id="loginBtn"
-          class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition w-72">Login</button>
+    class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition w-72">Login</button>
   <p id="error" class="text-sm text-red-600 mt-2"></p>
 </section>
 
-<!-- ========== Main Section ========== -->
+<!-- Main -->
 <section id="main-section" class="hidden w-full max-w-5xl mx-auto p-6">
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-    <!-- Left: Detection -->
+    <!-- Detection -->
     <div class="bg-white p-6 rounded-xl shadow">
       <div class="flex items-center justify-between mb-3">
         <div>
@@ -77,14 +68,12 @@
       <div id="webcam-container" class="mx-auto text-center"></div>
     </div>
 
-    <!-- Right: Leaderboard + Chart -->
+    <!-- Leaderboard + Chart -->
     <div class="bg-white p-6 rounded-xl shadow space-y-6">
       <h2 class="text-xl font-semibold text-green-800 mb-2">🏆 Top Recyclers</h2>
       <ul id="leaderboardList" class="space-y-2"></ul>
-
       <h2 class="text-xl font-semibold text-green-800 mb-2">📊 Recycling Statistics</h2>
       <canvas id="chart" class="w-full max-w-md"></canvas>
-
       <h3 class="text-lg font-medium text-green-700 mb-2">📝 Recent Activity</h3>
       <ul id="recentList" class="text-sm space-y-1 max-h-48 overflow-auto"></ul>
     </div>
@@ -92,7 +81,7 @@
 </section>
 
 <script>
-// ===== Firebase Setup =====
+// Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyAjWXFfQT_5dBtDZvYFwyj4kGfeWQdcCBU",
   authDomain: "recygo-cd169.firebaseapp.com",
@@ -100,56 +89,63 @@ const firebaseConfig = {
   storageBucket: "recygo-cd169.firebasestorage.app",
   messagingSenderId: "965670715995",
   appId: "1:965670715995:web:b4da5995cb0bd5da8c357e",
-  measurementId: "G-9MD9PD9PJL"
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// ===== Globals =====
-const URL = "https://teachablemachine.withgoogle.com/models/QrklOM9Pj/"; // ✅ 已更換模型
+const URL = "https://teachablemachine.withgoogle.com/models/QrklOM9Pj/";
 let model, webcam, port, writer;
 let detecting=false, rewardPoints=0, currentStudentId=null;
 let lastLabel="", stableCount=0, lastConfirmedLabel="";
 const STABLE_THRESHOLD = 3;
-let pieChart = null;
+let pieChart=null;
 
-// ===== Login =====
+// Login
 document.getElementById("loginBtn").addEventListener("click", async ()=>{
   const id=document.getElementById("studentId").value.trim();
-  const errorMsg=document.getElementById("error");
-  if(!/^\d{8}$/.test(id)) return errorMsg.textContent="⚠️ Please enter a valid 8-digit ID";
-
-  errorMsg.textContent="⏳ Logging in...";
+  const err=document.getElementById("error");
+  if(!/^\d{8}$/.test(id)) return err.textContent="⚠️ Please enter a valid 8-digit ID";
+  err.textContent="⏳ Logging in...";
   currentStudentId=id;
-
-  const docRef=db.collection("students").doc(id);
-  const docSnap=await docRef.get();
-  if(docSnap.exists) rewardPoints=docSnap.data().points||0;
-  else { await docRef.set({points:0}); rewardPoints=0; }
-
+  const ref=db.collection("students").doc(id);
+  const snap=await ref.get();
+  rewardPoints=snap.exists?snap.data().points||0:0;
+  if(!snap.exists) await ref.set({points:0});
   document.getElementById("points").innerText=rewardPoints;
   document.getElementById("userId").innerText=id;
   document.getElementById("login-section").classList.add("hidden");
   document.getElementById("main-section").classList.remove("hidden");
-
+  err.textContent="";
   await loadLeaderboard(); await loadStats(); await loadRecentRecords();
-  errorMsg.textContent="";
 });
 
-// ===== Connect Arduino =====
+// Connect Arduino
 document.getElementById("connectBtn").addEventListener("click", async ()=>{
   try{
     port=await navigator.serial.requestPort();
     await port.open({baudRate:9600});
     writer=port.writable.getWriter();
     document.getElementById("status").innerText="✅ Arduino Connected";
-  }catch(err){
-    alert("❌ Connection failed: "+err);
-    document.getElementById("status").innerText="❌ Arduino connection failed";
-  }
+  }catch(e){alert("❌ "+e);document.getElementById("status").innerText="❌ Connection failed";}
 });
 
-// ===== Init AI =====
+// Logout（修正）
+document.getElementById("logoutBtn").addEventListener("click", async ()=>{
+  detecting=false;
+  if(webcam) try{await webcam.stop();}catch(e){}
+  if(writer) try{await writer.write(new TextEncoder().encode("STOP\n")); writer.releaseLock();}catch(e){}
+  if(port) try{await port.close();}catch(e){}
+  currentStudentId=null;
+  document.getElementById("studentId").value="";
+  document.getElementById("login-section").classList.remove("hidden");
+  document.getElementById("main-section").classList.add("hidden");
+  document.getElementById("points").innerText="0";
+  document.getElementById("userId").innerText="—";
+  document.getElementById("detectStatus").innerText="💤 Waiting for detection...";
+  document.getElementById("status").innerText="Status: Not connected";
+});
+
+// AI Init
 async function init(){
   if(model) return;
   model=await tmImage.load(URL+"model.json", URL+"metadata.json");
@@ -159,67 +155,41 @@ async function init(){
   document.getElementById("webcam-container").innerHTML="";
   document.getElementById("webcam-container").appendChild(webcam.canvas);
 }
-
-// ===== Loop =====
-async function loop(){
-  webcam.update();
-  await predict();
-  if(detecting) setTimeout(loop,250);
-}
-
+async function loop(){webcam.update();await predict();if(detecting)setTimeout(loop,250);}
 async function predict(){
   const prediction=await model.predict(webcam.canvas);
   let highest=prediction.reduce((a,b)=>a.probability>b.probability?a:b);
   const label=highest.className.trim();
-  const confidence=highest.probability;
-  document.getElementById("label").innerText=`Detected: ${label} (${(confidence*100).toFixed(1)}%)`;
-
-  if(label===lastLabel && confidence>0.6) stableCount++;
-  else { stableCount=0; lastLabel=label; }
-
-  if(stableCount>=STABLE_THRESHOLD){
-    stableCount=0;
-    handleStableDetection(label);
-  }
+  const conf=highest.probability;
+  document.getElementById("label").innerText=`Detected: ${label} (${(conf*100).toFixed(1)}%)`;
+  if(label===lastLabel&&conf>0.6) stableCount++; else{stableCount=0; lastLabel=label;}
+  if(stableCount>=STABLE_THRESHOLD){stableCount=0; handleStableDetection(label);}
 }
 
-// ===== Handle Detection =====
 async function handleStableDetection(label){
-  if(label===lastConfirmedLabel) return;
+  if(label===lastConfirmedLabel)return;
   lastConfirmedLabel=label;
   const ds=document.getElementById("detectStatus");
-  let msg="", pointsToAdd=0;
-
+  let msg="",points=0;
   switch(label.toLowerCase()){
-    case "non-recyclable":
-      msg="NONRECYCLABLE\n"; ds.textContent="🚫 Non-recyclable detected!"; ds.style.color="red"; pointsToAdd=0; break;
-    case "plastic":
-      msg="PLASTIC\n"; ds.textContent="♻️ Plastic detected!"; ds.style.color="blue"; pointsToAdd=1; break;
-    case "pet bottle":
-      msg="PETBOTTLE\n"; ds.textContent="🥤 PET Bottle detected!"; ds.style.color="green"; pointsToAdd=3; break;
-    case "metal":
-      msg="METAL\n"; ds.textContent="🔩 Metal detected!"; ds.style.color="gray"; pointsToAdd=2; break;
-    default:
-      ds.textContent="⚠️ Unknown category"; ds.style.color="#666"; return;
+    case "non-recyclable": msg="NONRECYCLABLE\n"; points=0; ds.textContent="🚫 Non-recyclable"; ds.style.color="red"; break;
+    case "plastic": msg="PLASTIC\n"; points=1; ds.textContent="♻️ Plastic"; ds.style.color="blue"; break;
+    case "pet bottle": msg="PETBOTTLE\n"; points=3; ds.textContent="🥤 PET Bottle"; ds.style.color="green"; break;
+    case "metal": msg="METAL\n"; points=2; ds.textContent="🔩 Metal"; ds.style.color="gray"; break;
+    default: return;
   }
-
-  rewardPoints+=pointsToAdd;
+  rewardPoints+=points;
   document.getElementById("points").innerText=rewardPoints;
   if(writer) try{await writer.write(new TextEncoder().encode(msg));}catch(e){}
-
   if(currentStudentId){
-    const studentRef=db.collection("students").doc(currentStudentId);
-    await studentRef.update({points:rewardPoints});
-    await studentRef.collection("records").add({
-      label:label,
-      pointsAdded:pointsToAdd,
-      timestamp:firebase.firestore.FieldValue.serverTimestamp()
-    });
+    const ref=db.collection("students").doc(currentStudentId);
+    await ref.update({points:rewardPoints});
+    await ref.collection("records").add({label:label,pointsAdded:points,timestamp:firebase.firestore.FieldValue.serverTimestamp()});
     await loadLeaderboard(); await loadStats(); await loadRecentRecords();
   }
 }
 
-// ===== Buttons =====
+// Buttons
 document.getElementById("startBtn").addEventListener("click", async ()=>{
   if(!model) await init();
   detecting=true;
@@ -227,60 +197,36 @@ document.getElementById("startBtn").addEventListener("click", async ()=>{
   if(writer) await writer.write(new TextEncoder().encode("START\n"));
   loop();
 });
-
 document.getElementById("stopBtn").addEventListener("click", async ()=>{
   detecting=false;
   document.getElementById("detectStatus").textContent="💤 Detection stopped.";
   if(writer) await writer.write(new TextEncoder().encode("STOP\n"));
 });
 
-// ===== Leaderboard =====
+// Leaderboard + Stats + Recent
 async function loadLeaderboard(){
-  const snapshot=await db.collection("students").orderBy("points","desc").limit(5).get();
-  const list=document.getElementById("leaderboardList"); list.innerHTML="";
-  if(snapshot.empty){ list.innerHTML="<li class='p-2 bg-gray-50 rounded-md'>No data yet</li>"; return; }
-  let rank=1;
-  snapshot.forEach(doc=>{
-    const d=doc.data(); const score=d.points||0;
-    const isMe=(doc.id===currentStudentId);
-    list.innerHTML+=`<li class="flex items-center justify-between p-2 rounded-md ${isMe?'bg-green-50 border border-green-100':'bg-white'}">
-      <div class="text-sm"><span class="font-semibold">#${rank}</span> &nbsp; ${doc.id}</div>
-      <div class="text-sm font-medium text-green-700">${score} pts</div>
-    </li>`;
-    rank++;
+  const s=await db.collection("students").orderBy("points","desc").limit(5).get();
+  const l=document.getElementById("leaderboardList"); l.innerHTML="";
+  if(s.empty){l.innerHTML="<li>No data</li>"; return;}
+  let r=1; s.forEach(doc=>{
+    const d=doc.data(),score=d.points||0;
+    l.innerHTML+=`<li class="flex justify-between p-2 ${doc.id===currentStudentId?'bg-green-50':''}"><div>#${r} ${doc.id}</div><div>${score} pts</div></li>`;r++;
   });
 }
-
-// ===== Stats =====
 async function loadStats(){
-  const recordsSnap=await db.collectionGroup("records").get();
-  let non=0, plastic=0, pet=0, metal=0;
-  recordsSnap.forEach(r=>{
-    const lb=r.data().label.toLowerCase();
-    if(lb.includes("non")) non++;
-    else if(lb.includes("plastic")) plastic++;
-    else if(lb.includes("pet")) pet++;
-    else if(lb.includes("metal")) metal++;
-  });
-
+  const snap=await db.collectionGroup("records").get();
+  let n=0,p=0,b=0,m=0;
+  snap.forEach(r=>{const lb=r.data().label.toLowerCase(); if(lb.includes("non"))n++;else if(lb.includes("plastic"))p++;else if(lb.includes("pet"))b++;else if(lb.includes("metal"))m++;});
   const ctx=document.getElementById("chart").getContext('2d');
-  const data={labels:["Non-recyclable","Plastic","PET Bottle","Metal"],
-    datasets:[{data:[non,plastic,pet,metal],backgroundColor:["#ef4444","#3b82f6","#16a34a","#6b7280"]}]};
-  if(pieChart){pieChart.data=data; pieChart.update();}
-  else pieChart=new Chart(ctx,{type:'pie',data:data,options:{plugins:{legend:{position:'bottom'}}}});
+  const data={labels:["Non-recyclable","Plastic","PET Bottle","Metal"],datasets:[{data:[n,p,b,m],backgroundColor:["#ef4444","#3b82f6","#16a34a","#6b7280"]}]};
+  if(pieChart){pieChart.data=data;pieChart.update();}else pieChart=new Chart(ctx,{type:'pie',data:data,options:{plugins:{legend:{position:'bottom'}}}});
 }
-
-// ===== Recent Records =====
 async function loadRecentRecords(){
   const list=document.getElementById("recentList"); list.innerHTML="";
-  if(!currentStudentId) return;
-  const q=await db.collection("students").doc(currentStudentId)
-    .collection("records").orderBy("timestamp","desc").limit(10).get();
-  if(q.empty){list.innerHTML="<li class='text-sm text-gray-500'>No recent activity</li>"; return;}
-  q.forEach(doc=>{
-    const d=doc.data(); const t=d.timestamp?d.timestamp.toDate().toLocaleString():"—";
-    list.innerHTML+=`<li class="text-sm"><span class="text-gray-700 font-medium">${d.label}</span> · +${d.pointsAdded} pts <span class="text-gray-400">(${t})</span></li>`;
-  });
+  if(!currentStudentId)return;
+  const q=await db.collection("students").doc(currentStudentId).collection("records").orderBy("timestamp","desc").limit(10).get();
+  if(q.empty){list.innerHTML="<li>No records</li>"; return;}
+  q.forEach(d=>{const r=d.data(); const t=r.timestamp?r.timestamp.toDate().toLocaleString():"—"; list.innerHTML+=`<li>${r.label} · +${r.pointsAdded} pts (${t})</li>`;});
 }
 </script>
 </body>
