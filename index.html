@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title> RecyGo</title>
+<title>♻️ RecyGo</title>
 <link rel="icon" type="image/png" href="logo.jpg">
 
 <!-- Tailwind -->
@@ -36,7 +36,7 @@
 <!-- ========== Login Section ========== -->
 <section id="login-section" class="bg-white p-8 rounded-2xl shadow-xl w-11/12 max-w-md text-center">
   <img src="logo.jpg" alt="RecyGo Logo" class="mx-auto w-24 h-24 rounded-xl mb-3">
-  <h1 class="text-3xl font-extrabold text-green-800 mb-2"> RecyGo</h1>
+  <h1 class="text-3xl font-extrabold text-green-800 mb-2">♻️ RecyGo</h1>
   <p class="text-green-700 mb-6">Smart Recycling System</p>
 
   <h3 class="text-lg font-semibold mb-3">👩‍🎓 Enter Your 8-digit Student ID</h3>
@@ -88,7 +88,6 @@
       <h3 class="text-lg font-medium text-green-700 mb-2">📝 Recent Activity</h3>
       <ul id="recentList" class="text-sm space-y-1 max-h-48 overflow-auto"></ul>
     </div>
-
   </div>
 </section>
 
@@ -107,7 +106,7 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 // ===== Globals =====
-const URL = "https://teachablemachine.withgoogle.com/models/m5QlLDsjr/";
+const URL = "https://teachablemachine.withgoogle.com/models/rutvcjBAk/"; // ✅ 你的模型
 let model, webcam, port, writer;
 let detecting=false, rewardPoints=0, currentStudentId=null;
 let lastLabel="", stableCount=0, lastConfirmedLabel="";
@@ -168,7 +167,6 @@ async function loop(){
   if(detecting) setTimeout(loop,250);
 }
 
-// ===== Prediction =====
 async function predict(){
   const prediction=await model.predict(webcam.canvas);
   let highest=prediction.reduce((a,b)=>a.probability>b.probability?a:b);
@@ -192,12 +190,12 @@ async function handleStableDetection(label){
   const ds=document.getElementById("detectStatus");
   let msg="", pointsToAdd=0;
 
-  switch(label){
+  switch(label.toLowerCase()){
     case "non-recyclable":
       msg="NONRECYCLABLE\n"; ds.textContent="🚫 Non-recyclable detected!"; ds.style.color="red"; pointsToAdd=0; break;
     case "plastic":
       msg="PLASTIC\n"; ds.textContent="♻️ Plastic detected!"; ds.style.color="blue"; pointsToAdd=1; break;
-    case "PET bottle":
+    case "pet bottle":
       msg="PETBOTTLE\n"; ds.textContent="🥤 PET Bottle detected!"; ds.style.color="green"; pointsToAdd=3; break;
     case "metal":
       msg="METAL\n"; ds.textContent="🔩 Metal detected!"; ds.style.color="gray"; pointsToAdd=2; break;
@@ -267,7 +265,7 @@ async function loadStats(){
 
   const ctx=document.getElementById("chart").getContext('2d');
   const data={labels:["Non-recyclable","Plastic","PET Bottle","Metal"],
-    datasets:[{data:[non,plastic,pet,metal],backgroundColor:["#ef4444","#3b82f6","#16a34a","#6b7280"]}]}.
+    datasets:[{data:[non,plastic,pet,metal],backgroundColor:["#ef4444","#3b82f6","#16a34a","#6b7280"]}]}; // ✅ fixed semicolon
   if(pieChart){pieChart.data=data; pieChart.update();}
   else pieChart=new Chart(ctx,{type:'pie',data:data,options:{plugins:{legend:{position:'bottom'}}}});
 }
@@ -287,4 +285,3 @@ async function loadRecentRecords(){
 </script>
 </body>
 </html>
-
